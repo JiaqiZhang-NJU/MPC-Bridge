@@ -1812,6 +1812,16 @@
 #define IDS_EXTERNAL                    44103
 #define IDS_SUB_SAVE_EXTERNAL_STYLE_FILE 44104
 
+// MPC-Bridge reserves 50000-50019 for its extension controls and commands.
+#define ID_BRIDGE_PROFILE_NATIVE        50000
+#define ID_BRIDGE_PROFILE_BILIBILI      50001
+#define ID_BRIDGE_PROFILE_YOUTUBE       50002
+#define ID_BRIDGE_PROFILE_CUSTOM        50003
+#define ID_BRIDGE_OPEN_ONLINE           50004
+#define IDC_BRIDGE_PROFILE              50010
+#define IDC_BRIDGE_IMPORT               50011
+#define IDC_BRIDGE_HELP                 50012
+
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

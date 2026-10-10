@@ -130,6 +130,7 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	friend class CPPageFileInfoSheet;
 	friend class CPPageLogo;
 	friend class CChildView;
+	friend class CFullscreenWnd;
 	friend class CThumbsTaskDlg;
 	friend class CShaderEditorDlg;
 	friend class CTextPassThruFilter;
@@ -288,6 +289,11 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	void SetupFavoritesSubMenu();
 	void SetupRecentFilesSubMenu();
 	void SetupLanguageMenu();
+	void AddBridgeProfileMenu(CMenu& menu);
+	bool HandleBridgeShortcut(MSG* message);
+	afx_msg void OnBridgeProfileSelected(UINT id);
+	afx_msg void OnBridgeOpenOnline();
+	afx_msg void OnUpdateBridgeProfile(CCmdUI* command);
 
 	IBaseFilter* FindSwitcherFilter();
 	void SetupAMStreamSubMenu(CMenu& submenu, UINT id, DWORD dwSelGroup);

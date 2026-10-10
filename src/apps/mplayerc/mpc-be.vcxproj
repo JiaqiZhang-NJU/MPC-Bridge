@@ -89,6 +89,24 @@
     <ClCompile Include="AboutDlg.cpp" />
     <ClCompile Include="AddCommandDlg.cpp" />
     <ClCompile Include="AppSettings.cpp" />
+    <ClCompile Include="bridge\ShortcutProfile.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="bridge\OnlineUrl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="bridge\OnlineVideoDialog.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="bridge\PlayerShortcutAdapter.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="bridge\ShortcutProfilePage.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="AuthDlg.cpp" />
     <ClCompile Include="BaseGraph.cpp" />
     <ClCompile Include="CmdLineHelpDlg.cpp" />
@@ -169,7 +187,10 @@
     <ClCompile Include="PlayerToolBar.cpp" />
     <ClCompile Include="PlayerVolumeCtrl.cpp" />
     <ClCompile Include="PnSPresetsDlg.cpp" />
-    <ClCompile Include="PPageAccelTbl.cpp" />
+    <ClCompile Include="PPageAccelTbl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="PPageAudio.cpp" />
     <ClCompile Include="PPageBase.cpp" />
     <ClCompile Include="PPageCapture.cpp" />
@@ -225,6 +246,9 @@
     <ClInclude Include="AboutDlg.h" />
     <ClInclude Include="AddCommandDlg.h" />
     <ClInclude Include="AppSettings.h" />
+    <ClInclude Include="bridge\ShortcutProfile.h" />
+    <ClInclude Include="bridge\OnlineUrl.h" />
+    <ClInclude Include="bridge\BuiltinProfiles.h" />
     <ClInclude Include="AuthDlg.h" />
     <ClInclude Include="BaseGraph.h" />
     <ClInclude Include="CmdLineHelpDlg.h" />

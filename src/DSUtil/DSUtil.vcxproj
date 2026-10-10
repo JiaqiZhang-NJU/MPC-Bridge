@@ -62,7 +62,10 @@
     <ClCompile Include="DSMPropertyBag.cpp" />
     <ClCompile Include="DSUtil.cpp" />
     <ClCompile Include="DXVAState.cpp" />
-    <ClCompile Include="entities.cpp" />
+    <ClCompile Include="entities.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="FileHandle.cpp" />
     <ClCompile Include="FileVersionInfo.cpp" />
     <ClCompile Include="FontInstaller.cpp" />
@@ -118,6 +121,7 @@
     <ClInclude Include="H264Nalu.h" />
     <ClInclude Include="HdmvClipInfo.h" />
     <ClInclude Include="HTTPAsync.h" />
+    <ClInclude Include="MediaRequestHeaders.h" />
     <ClInclude Include="ID3Tag.h" />
     <ClInclude Include="ID3v2PictureType.h" />
     <ClInclude Include="ISOLang.h" />

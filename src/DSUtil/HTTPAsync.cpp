@@ -19,6 +19,7 @@
  */
 
 #include "stdafx.h"
+#include "MediaRequestHeaders.h"
 #include "HTTPAsync.h"
 #include "Log.h"
 #include "text.h"
@@ -199,6 +200,9 @@ void CHTTPAsync::Close()
 
 HRESULT CHTTPAsync::Connect(LPCWSTR lpszURL, DWORD dwTimeOut/* = INFINITE*/, LPCWSTR lpszCustomHeader/* = L""*/)
 {
+	CheckPointer(lpszURL, E_POINTER);
+	// Capture once so later range requests and an in-flight stream survive profile/session changes.
+	m_mediaRequestHeaders = Bridge::mediaRequestHeaders.ForUrl(lpszURL).c_str();
 	m_url_redirect_str.Empty();
 
 	for (;;) {
@@ -369,6 +373,7 @@ HRESULT CHTTPAsync::SendRequest(LPCWSTR lpszCustomHeader/* = L""*/, DWORD dwTime
 
 		CStringW lpszHeaders = L"Accept: */*\r\n";
 		lpszHeaders += lpszCustomHeader;
+		lpszHeaders += m_mediaRequestHeaders;
 		for (;;) {
 			if (!HttpSendRequestW(m_hRequest,
 								  lpszHeaders,

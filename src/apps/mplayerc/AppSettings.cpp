@@ -839,6 +839,29 @@ void CAppSettings::ResetSettings()
 	strTabs.Empty();
 }
 
+bool CAppSettings::SetBridgeProfile(const CString& id, const CString& customJson, CString& error)
+{
+	Bridge::ShortcutProfile candidate;
+	std::string detail;
+	const CStringA utf8 = WStrToUTF8(id == L"custom" ? customJson : id);
+	const bool ok = id == L"custom"
+		? Bridge::ParseProfile(std::string_view(utf8.GetString(), utf8.GetLength()), candidate, detail)
+		: Bridge::LoadBuiltin(std::string_view(utf8.GetString(), utf8.GetLength()), candidate, detail);
+	if (!ok) {
+		error = UTF8ToWStr(detail.c_str());
+		return false;
+	}
+	bridgeShortcutProfile = std::move(candidate);
+	strBridgeProfileId = id;
+	strBridgeCustomProfile = customJson;
+	// INI values occupy one line. JSON whitespace can be removed outside escaped strings.
+	strBridgeCustomProfile.Remove(L'\r');
+	strBridgeCustomProfile.Remove(L'\n');
+	strBridgeProfileError.Empty();
+	error.Empty();
+	return true;
+}
+
 void CAppSettings::LoadSettings(bool bForce/* = false*/)
 {
 	CMPlayerCApp* pApp = AfxGetMyApp();
@@ -1222,6 +1245,15 @@ void CAppSettings::LoadSettings(bool bForce/* = false*/)
 		Accel[i] = wmcmds[i];
 	}
 	hAccel = HandlerForCreateAcceleratorTable(Accel);
+
+	CString bridgeId = L"native", bridgeJson, bridgeError;
+	profile.ReadString(L"MPC-Bridge", L"ShortcutProfile", bridgeId);
+	profile.ReadString(L"MPC-Bridge", L"CustomProfile", bridgeJson);
+	if (!SetBridgeProfile(bridgeId, bridgeJson, bridgeError)) {
+		CString ignored;
+		SetBridgeProfile(L"native", bridgeJson, ignored);
+		strBridgeProfileError = bridgeError;
+	}
 
 	profile.ReadString(IDS_R_SETTINGS, IDS_RS_WINLIRCADDR, strWinLircAddr);
 	profile.ReadBool(IDS_R_SETTINGS, IDS_RS_WINLIRC, bWinLirc);
@@ -1873,6 +1905,8 @@ void CAppSettings::SaveSettings()
 	profile.WriteBool(IDS_R_SETTINGS, IDS_RS_WINLIRC, bWinLirc);
 	profile.WriteString(IDS_R_SETTINGS, IDS_RS_WINLIRCADDR, strWinLircAddr);
 	profile.WriteBool(IDS_R_SETTINGS, IDS_RS_GLOBALMEDIA, bGlobalMedia);
+	profile.WriteString(L"MPC-Bridge", L"ShortcutProfile", strBridgeProfileId);
+	profile.WriteString(L"MPC-Bridge", L"CustomProfile", strBridgeCustomProfile);
 
 	// Mouse
 	str.Format(L"%u", nMouseLeftClick);

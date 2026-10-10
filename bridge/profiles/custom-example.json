@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "my-controls",
+  "displayName": "My controls",
+  "profileVersion": 1,
+  "bindings": [
+    {"key": "K", "action": "play.toggle"},
+    {"key": "Space", "action": "play.toggle"},
+    {"key": "Right", "action": "seek.relative", "args": {"seconds": 15}, "repeat": true},
+    {"key": "Left", "action": "seek.relative", "args": {"seconds": -15}, "repeat": true},
+    {"key": "5", "action": "seek.percent", "args": {"percent": 50}},
+    {"key": "J", "action": "none"}
+  ]
+}

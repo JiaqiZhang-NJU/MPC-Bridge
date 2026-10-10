@@ -23,6 +23,7 @@
 #include "DSUtil/text.h"
 #include "PlayerYtDlp.h"
 #include "DSUtil/HTTPAsync.h"
+#include "DSUtil/MediaRequestHeaders.h"
 
 #define bufsize (2ul * KILOBYTE)
 
@@ -818,6 +819,7 @@ void YT_DLP::SetInfo(const rapidjson::Document& doc)
 	// user-agent
 	if (auto http_headers = GetJsonObject(doc, "http_headers")) {
 		getJsonValue(*http_headers, "User-Agent", mUserAgent);
+		getJsonValue(*http_headers, "Referer", mReferer);
 		DLogIf(mUserAgent.GetLength(), L"User-Agent: %s", mUserAgent.GetString());
 	}
 
@@ -1043,6 +1045,8 @@ void YT_DLP::Clear()
 	mDuration = 0;
 	mIsLive = false;
 	mUserAgent.Empty();
+	mReferer.Empty();
+	Bridge::mediaRequestHeaders.SetReferer({}, L"");
 
 	mThumbnail.Clear();
 	mChapters.clear();
@@ -1166,6 +1170,10 @@ bool YT_DLP::FillOFD(OpenFileData& ofd) const
 		}
 	}
 
+	std::vector<std::wstring> mediaUrls;
+	if (ofd.fi.Valid()) { mediaUrls.emplace_back(ofd.fi.GetPath().GetString()); }
+	for (const auto& audio : ofd.auds) { mediaUrls.emplace_back(audio.GetPath().GetString()); }
+	Bridge::mediaRequestHeaders.SetReferer(mediaUrls, mReferer.GetString());
 	return ofd.fi.Valid();
 }
 

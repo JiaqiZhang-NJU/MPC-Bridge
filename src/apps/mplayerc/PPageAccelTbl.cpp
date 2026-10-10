@@ -525,6 +525,9 @@ BEGIN_MESSAGE_MAP(CPPageAccelTbl, CPPageBase)
 	ON_WM_TIMER()
 	ON_WM_CTLCOLOR()
 	ON_EN_CHANGE(IDC_EDIT3, OnChangeFilterEdit)
+	ON_CBN_SELCHANGE(IDC_BRIDGE_PROFILE, OnBridgeProfileChanged)
+	ON_BN_CLICKED(IDC_BRIDGE_IMPORT, OnBridgeImport)
+	ON_BN_CLICKED(IDC_BRIDGE_HELP, OnBridgeHelp)
 END_MESSAGE_MAP()
 
 // CPPageAccelTbl message handlers
@@ -558,6 +561,7 @@ BOOL CPPageAccelTbl::OnInitDialog()
 	m_bWinLirc = s.bWinLirc;
 	m_WinLircAddr = s.strWinLircAddr;
 	m_bGlobalMedia = s.bGlobalMedia;
+	m_BridgeCustomJson = s.strBridgeCustomProfile;
 
 	ASSERT(std::size(s.AccelTblColWidths) == COL_COUNT);
 
@@ -567,6 +571,35 @@ BOOL CPPageAccelTbl::OnInitDialog()
 		GetDlgItem(IDC_CHECK9)->ShowWindow(SW_HIDE);
 		GetDlgItem(IDC_STATICLINK2)->ShowWindow(SW_HIDE);
 		GetDlgItem(IDC_EDIT2)->ShowWindow(SW_HIDE);
+
+		// Reuse the unused uICE row in every language resource; no dialog size changes.
+		const bool chinese = s.iCurrentLanguage == CMPlayerCApp::GetLanguageIndex(ID_LANGUAGE_CHINESE_SIMPLIFIED)
+			|| s.iCurrentLanguage == CMPlayerCApp::GetLanguageIndex(ID_LANGUAGE_CHINESE_TRADITIONAL);
+		GetDlgItem(IDC_STATICLINK2)->SetWindowTextW(chinese ? L"预设：" : L"Preset:");
+		GetDlgItem(IDC_STATICLINK2)->ShowWindow(SW_SHOW);
+		CRect comboRect;
+		GetDlgItem(IDC_EDIT2)->GetWindowRect(comboRect);
+		ScreenToClient(comboRect);
+		comboRect.bottom += 150;
+		m_BridgeProfile.Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL,
+			comboRect, this, IDC_BRIDGE_PROFILE);
+		m_BridgeProfile.SetFont(GetFont());
+		m_BridgeProfile.AddString(chinese ? L"MPC-BE 原生" : L"MPC-BE native");
+		m_BridgeProfile.AddString(chinese ? L"Bilibili（预览）" : L"Bilibili (preview)");
+		m_BridgeProfile.AddString(L"YouTube");
+		m_BridgeProfile.AddString(chinese ? L"自定义" : L"Custom");
+		m_BridgeProfile.SetDroppedWidth(comboRect.Width() + 80);
+		m_BridgeProfile.SetCurSel(s.strBridgeProfileId == L"bilibili" ? 1
+			: s.strBridgeProfileId == L"youtube" ? 2 : s.strBridgeProfileId == L"custom" ? 3 : 0);
+		CRect importRect(148, 230, 195, 243), helpRect(148, 215, 195, 228);
+		MapDialogRect(importRect);
+		MapDialogRect(helpRect);
+		m_BridgeImport.Create(chinese ? L"导入…" : L"Import...", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+			importRect, this, IDC_BRIDGE_IMPORT);
+		m_BridgeHelp.Create(chinese ? L"键位…" : L"Keys...", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+			helpRect, this, IDC_BRIDGE_HELP);
+		m_BridgeImport.SetFont(GetFont());
+		m_BridgeHelp.SetFont(GetFont());
 
 		CRect r;
 		GetDlgItem(IDC_PLACEHOLDER)->GetWindowRect(r);
@@ -620,6 +653,15 @@ BOOL CPPageAccelTbl::OnInitDialog()
 
 BOOL CPPageAccelTbl::OnApply()
 {
+	static constexpr const wchar_t* ids[] = {L"native", L"bilibili", L"youtube", L"custom"};
+	const int selected = m_BridgeProfile.GetCurSel();
+	CString error;
+	if (selected < 0 || selected > 3
+		|| !AfxGetAppSettings().SetBridgeProfile(ids[selected], m_BridgeCustomJson, error)) {
+		if (error.IsEmpty()) { error = L"Select a shortcut preset."; }
+		AfxMessageBox(error, MB_ICONWARNING);
+		return FALSE;
+	}
 	AfxGetMyApp()->UnregisterHotkeys();
 	UpdateData();
 

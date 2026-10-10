@@ -57,6 +57,21 @@
     <ClCompile Include="filters\ChaptersSouce.cpp">
       <Filter>Filters</Filter>
     </ClCompile>
+    <ClCompile Include="bridge\ShortcutProfile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bridge\OnlineUrl.cpp">
+      <Filter>Online</Filter>
+    </ClCompile>
+    <ClCompile Include="bridge\OnlineVideoDialog.cpp">
+      <Filter>Online</Filter>
+    </ClCompile>
+    <ClCompile Include="bridge\PlayerShortcutAdapter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bridge\ShortcutProfilePage.cpp">
+      <Filter>Player Options</Filter>
+    </ClCompile>
     <ClCompile Include="filters\DeinterlacerFilter.cpp">
       <Filter>Filters</Filter>
     </ClCompile>
@@ -454,6 +469,15 @@
   <ItemGroup>
     <ClInclude Include="DVBChannel.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bridge\ShortcutProfile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bridge\BuiltinProfiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bridge\OnlineUrl.h">
+      <Filter>Online</Filter>
     </ClInclude>
     <ClInclude Include="FileDropTarget.h">
       <Filter>Header Files</Filter>

@@ -109,6 +109,7 @@ public:
 	REFERENCE_TIME  mDuration = 0;
 	bool            mIsLive = false;
 	CStringW        mUserAgent;
+	CStringW        mReferer;
 
 	std::vector<Chapters> mChapters;
 

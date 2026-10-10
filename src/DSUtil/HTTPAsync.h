@@ -56,6 +56,7 @@ protected:
 	CStringW m_host;
 	CStringW m_path;
 	CStringW m_schemeName;
+	CStringW m_mediaRequestHeaders;
 
 	CStringW m_url_redirect_str;
 

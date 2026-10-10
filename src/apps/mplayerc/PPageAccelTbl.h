@@ -85,6 +85,10 @@ public:
 	UINT_PTR m_nFilterTimerID = 0;
 
 	CEdit m_FilterEdit;
+	CComboBox m_BridgeProfile;
+	CButton m_BridgeImport;
+	CButton m_BridgeHelp;
+	CString m_BridgeCustomJson;
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
@@ -111,6 +115,9 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 
 	afx_msg void OnChangeFilterEdit();
+	afx_msg void OnBridgeProfileChanged();
+	afx_msg void OnBridgeImport();
+	afx_msg void OnBridgeHelp();
 
 	virtual void OnCancel();
 };

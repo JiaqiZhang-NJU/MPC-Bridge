@@ -1,0 +1,28 @@
+name: Bridge shortcut core
+on:
+  push:
+    paths:
+      - 'bridge/profiles/**'
+      - 'src/apps/mplayerc/bridge/**'
+      - 'src/DSUtil/MediaRequestHeaders.h'
+      - 'tests/bridge/**'
+      - 'tools/bridge/**'
+      - '.github/workflows/bridge-shortcuts.yml'
+  pull_request:
+    paths:
+      - 'bridge/profiles/**'
+      - 'src/apps/mplayerc/bridge/**'
+      - 'src/DSUtil/MediaRequestHeaders.h'
+      - 'tests/bridge/**'
+      - 'tools/bridge/**'
+      - '.github/workflows/bridge-shortcuts.yml'
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: git submodule update --init src/ExtLib/rapidjson
+      - shell: pwsh
+        run: ./tools/bridge/test.ps1

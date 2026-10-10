@@ -161,6 +161,9 @@ END_MESSAGE_MAP()
 
 BOOL CFullscreenWnd::PreTranslateMessage(MSG* pMsg)
 {
+	if (m_pMainFrame && m_pMainFrame->HandleBridgeShortcut(pMsg)) {
+		return TRUE;
+	}
 	switch (pMsg->message) {
 		case WM_SYSKEYDOWN :
 		case WM_SYSKEYUP :

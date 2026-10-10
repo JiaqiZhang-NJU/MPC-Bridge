@@ -20,6 +20,7 @@
  */
 
 #include "stdafx.h"
+#include "DSUtil/MediaRequestHeaders.h"
 
 #include "MainFrm.h"
 #include <afxglobals.h>
@@ -251,6 +252,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_FILE_OPENFILE, OnFileOpenQuick)
 	ON_UPDATE_COMMAND_UI(ID_FILE_OPENFILE, OnUpdateFileOpen)
 	ON_COMMAND(ID_FILE_OPENFILEURL, OnFileOpenMedia)
+	ON_COMMAND(ID_BRIDGE_OPEN_ONLINE, OnBridgeOpenOnline)
+	ON_UPDATE_COMMAND_UI(ID_BRIDGE_OPEN_ONLINE, OnUpdateFileOpen)
 	ON_UPDATE_COMMAND_UI(ID_FILE_OPENFILEURL, OnUpdateFileOpen)
 	ON_WM_COPYDATA()
 	ON_COMMAND(ID_FILE_OPENDVD, OnFileOpenDVD)
@@ -335,6 +338,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND_RANGE(ID_ONTOP_NEVER, ID_ONTOP_WHILEPLAYINGVIDEO, OnViewOntop)
 	ON_UPDATE_COMMAND_UI_RANGE(ID_ONTOP_NEVER, ID_ONTOP_WHILEPLAYINGVIDEO, OnUpdateViewOntop)
 	ON_COMMAND(ID_VIEW_OPTIONS, OnViewOptions)
+	ON_COMMAND_RANGE(ID_BRIDGE_PROFILE_NATIVE, ID_BRIDGE_PROFILE_CUSTOM, OnBridgeProfileSelected)
+	ON_UPDATE_COMMAND_UI_RANGE(ID_BRIDGE_PROFILE_NATIVE, ID_BRIDGE_PROFILE_CUSTOM, OnUpdateBridgeProfile)
 
 	ON_UPDATE_COMMAND_UI(ID_VIEW_TEARING_TEST, OnUpdateViewTearingTest)
 	ON_COMMAND(ID_VIEW_TEARING_TEST, OnViewTearingTest)
@@ -1312,6 +1317,9 @@ BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 {
+	if (HandleBridgeShortcut(pMsg)) {
+		return TRUE;
+	}
 	if (pMsg->message == WM_KEYDOWN) {
 		if (pMsg->wParam == VK_ESCAPE) {
 			const bool bEscapeNotAssigned = !AssignedKeyToCmd(VK_ESCAPE);
@@ -4245,6 +4253,9 @@ void CMainFrame::OnInitMenu(CMenu* pMenu)
 
 void CMainFrame::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMenu)
 {
+	if (!bSysMenu) {
+		AddBridgeProfileMenu(*pPopupMenu);
+	}
 	UINT uiMenuCount = pPopupMenu->GetMenuItemCount();
 	if (uiMenuCount == UINT(-1)) {
 		return;
@@ -12243,6 +12254,8 @@ CString CMainFrame::OpenCreateGraphObject(OpenMediaData* pOMD)
 
 			if (m_pGB) {
 				pFGManager->SetUserAgent(http::userAgent);
+				const CStringW referer = Bridge::mediaRequestHeaders.RefererForUrl(pFileData->fi.GetPath().GetString()).c_str();
+				pFGManager->SetReferrer(referer);
 
 				if (bUseSmartSeek) {
 					// build graph for preview
@@ -12251,6 +12264,7 @@ CString CMainFrame::OpenCreateGraphObject(OpenMediaData* pOMD)
 
 					if (m_pGB_preview) {
 						pFGManager_preview->SetUserAgent(http::userAgent);
+						pFGManager_preview->SetReferrer(referer);
 					}
 				}
 			}

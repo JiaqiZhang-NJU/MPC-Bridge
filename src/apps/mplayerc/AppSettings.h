@@ -22,6 +22,7 @@
 #pragma once
 
 #include "SettingsDefines.h"
+#include "bridge/ShortcutProfile.h"
 #include "FakeFilterMapper2.h"
 #include "FilterEnum.h"
 #include "VideoSettings.h"
@@ -514,6 +515,12 @@ public:
 
 	// Keys
 	std::vector<wmcmd> wmcmds;
+	// Overlay only: native wmcmds and CommandMod settings are never rewritten by a preset.
+	Bridge::ShortcutProfile bridgeShortcutProfile;
+	CString strBridgeProfileId = L"native";
+	CString strBridgeCustomProfile;
+	CString strBridgeProfileError;
+	bool SetBridgeProfile(const CString& id, const CString& customJson, CString& error);
 	HACCEL			hAccel;
 	bool			bWinLirc;
 	CString			strWinLircAddr;
