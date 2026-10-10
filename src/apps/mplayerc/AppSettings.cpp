@@ -810,7 +810,7 @@ void CAppSettings::ResetSettings()
 	strYdlExePath    = DEFAULT_YTDLP_EXE;
 	iYdlVcodec       = YT_DLP::vcodec_vp9;
 	iYdlAcodec       = YT_DLP::acodec_opus;
-	iYdlMaxHeight    = 720;
+	iYdlMaxHeight    = 1080;
 	bYdlHighFps      = false;
 	bYdlHDR          = false;
 	bYdlHighBitrate  = false;
@@ -1549,7 +1549,7 @@ void CAppSettings::LoadSettings(bool bForce/* = false*/)
 			: YT_DLP::acodec_opus;
 	}
 	profile.ReadInt(IDS_R_ONLINESERVICES, IDS_RS_YDL_MAXHEIGHT, iYdlMaxHeight);
-	iYdlMaxHeight = discard(iYdlMaxHeight, 720, g_CommonVideoHeights);
+	iYdlMaxHeight = discard(iYdlMaxHeight, 1080, g_CommonVideoHeights);
 	profile.ReadBool(IDS_R_ONLINESERVICES, IDS_RS_YDL_HIGHFPS, bYdlHighFps);
 	profile.ReadBool(IDS_R_ONLINESERVICES, IDS_RS_YDL_HDR, bYdlHDR);
 	profile.ReadBool(IDS_R_ONLINESERVICES, IDS_RS_YDL_HIGHBITRATE, bYdlHighBitrate);

@@ -160,6 +160,7 @@ public:
 	UINT GetFilesCount() const;
 
 	const yt_vformat_t* GetVFormat() const;
+	std::vector<int> GetVideoHeights() const;
 	const yt_aformat_t* GetAFormat() const;
 	const std::vector<yt_sub_t>& GetSubtitles() const;
 	const yt_thumb_t* GetThumbnail() const;

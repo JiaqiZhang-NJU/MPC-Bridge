@@ -40,6 +40,7 @@
 #include "FileDropTarget.h"
 #include "KeyProvider.h"
 #include "PlayerYtDlp.h"
+#include "bridge/HoldGesture.h"
 #include "SvgHelper.h"
 #include "HistoryDlg.h"
 
@@ -291,6 +292,14 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	void SetupLanguageMenu();
 	void AddBridgeProfileMenu(CMenu& menu);
 	bool HandleBridgeShortcut(MSG* message);
+	bool IsBridgePlaybackWindow(HWND window) const;
+	void ExecuteBridgeBinding(const Bridge::Binding& binding);
+	void CancelBridgeHold();
+	void OnBridgeHoldTimer();
+	void ShowBridgeOnlineQuality();
+	Bridge::HoldGesture m_bridgeHold;
+	bool m_bridgeHoldRateActive = false;
+	double m_bridgeHoldPreviousRate = 1.0;
 	afx_msg void OnBridgeProfileSelected(UINT id);
 	afx_msg void OnBridgeOpenOnline();
 	afx_msg void OnUpdateBridgeProfile(CCmdUI* command);
@@ -401,7 +410,8 @@ public:
 		TIMER_FLYBARWINDOWHIDER,
 		TIMER_DM_AUTOCHANGING,
 		TIMER_PAUSE,
-		TIMER_MOUSE_LEFT_LONGPRESS_SPEED
+		TIMER_MOUSE_LEFT_LONGPRESS_SPEED,
+		TIMER_BRIDGE_HOLD
 	};
 
 	void SetColorMenu();
@@ -844,6 +854,7 @@ public:
 	afx_msg LRESULT OnDwmSendIconicThumbnail(WPARAM, LPARAM);
 	afx_msg LRESULT OnDwmSendIconicLivePreviewBitmap(WPARAM, LPARAM);
 	afx_msg void OnSetFocus(CWnd* pOldWnd);
+	afx_msg void OnKillFocus(CWnd* pNewWnd);
 	afx_msg void OnGetMinMaxInfo(MINMAXINFO* lpMMI);
 
 	afx_msg void ClipRectToMonitor(LPRECT prc);

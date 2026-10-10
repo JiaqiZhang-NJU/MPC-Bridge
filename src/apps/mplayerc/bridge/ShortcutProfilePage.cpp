@@ -95,9 +95,15 @@ void CPPageAccelTbl::OnBridgeHelp()
 		case Action::PlaylistNext: action = chinese ? L"队列下一项" : L"Next queued item"; break;
 		case Action::PlaylistPrevious: action = chinese ? L"队列上一项" : L"Previous queued item"; break;
 		}
+		if (binding.hold) {
+			CString hold;
+			hold.Format(chinese ? L"（短按）；长按 %u 毫秒临时 %g 倍速，松开恢复" : L" (tap); hold %u ms for temporary %gx speed, release to restore",
+				binding.hold->delayMs, binding.hold->rate);
+			action += hold;
+		}
 		text += MakeAccelShortcutLabel(accelerator) + L"  —  " + action + L"\n";
 	}
-	text += chinese ? L"\n下方列表保留原生键位。Bilibili 为预览预设，长按行为尚未加入。"
-		: L"\nThe list retains native bindings. Bilibili is a preview; hold gestures are not implemented yet.";
+	text += chinese ? L"\n下方列表保留原生键位。长按加速仅在视频播放时生效；暂停、失焦或切换预设会恢复原速度。"
+		: L"\nThe list retains native bindings. Temporary speed requires playback; pausing, losing focus or changing presets restores the previous speed.";
 	AfxMessageBox(text, MB_ICONINFORMATION);
 }

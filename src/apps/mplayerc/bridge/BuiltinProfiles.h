@@ -42,10 +42,10 @@ inline constexpr char BuiltinYoutube[] = R"BRIDGEPROFILE({
 }
 )BRIDGEPROFILE";
 inline constexpr char BuiltinBilibili[] = R"BRIDGEPROFILE({
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "bilibili",
   "displayName": "Bilibili (preview)",
-  "profileVersion": 1,
+  "profileVersion": 2,
   "reference": "Draft common controls; webpage parity has not been verified.",
   "bindings": [
     {"key": "Space", "action": "play.toggle"},
@@ -53,7 +53,7 @@ inline constexpr char BuiltinBilibili[] = R"BRIDGEPROFILE({
     {"key": "Escape", "action": "fullscreen.exit"},
     {"key": "M", "action": "mute.toggle"},
     {"key": "Left", "action": "seek.relative", "args": {"seconds": -5}, "repeat": true},
-    {"key": "Right", "action": "seek.relative", "args": {"seconds": 5}, "repeat": true},
+    {"key": "Right", "action": "seek.relative", "args": {"seconds": 5}, "hold": {"action": "rate.temporary", "args": {"rate": 3}, "delayMs": 300}},
     {"key": "Up", "action": "volume.relative", "args": {"percent": 10}, "repeat": true},
     {"key": "Down", "action": "volume.relative", "args": {"percent": -10}, "repeat": true}
   ]

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "apps/mplayerc/bridge/ShortcutProfile.h"
+#include "apps/mplayerc/bridge/HoldGesture.h"
 #include "apps/mplayerc/bridge/OnlineUrl.h"
 #include "DSUtil/MediaRequestHeaders.h"
 
@@ -42,8 +43,8 @@ int main()
 		Check(repeated.consume && !repeated.binding, "suppressed repeat cannot fall through to native binding");
 		Check(RouteKey(profile, 'L', 0, true, true).binding != nullptr, "seek can repeat");
 		Check(!RouteKey(profile, 'X', 0, false, true).consume, "unmapped native command preserved");
-		const auto previousId = profile.id;
 		auto reject = [&](std::string_view input, const char* name) {
+			const auto previousId = profile.id;
 			Check(!ParseProfile(input, profile, error) && !error.empty() && profile.id == previousId, name);
 		};
 		reject(Profile("{\"key\":\"K\",\"action\":\"play.toggle\"},{\"key\":\"K\",\"action\":\"mute.toggle\"}"), "duplicate chords rejected atomically");
@@ -57,7 +58,7 @@ int main()
 		reject(Profile("{\"key\":\"K\",\"action\":\"volume.relative\",\"args\":{\"percent\":0.5}}"), "fractional volume step rejected");
 		reject(Profile("{\"key\":\"K\",\"action\":\"seek.relative\",\"args\":{\"seconds\":0}}"), "zero relative step rejected");
 		reject(Profile("{\"key\":\"K\",\"key\":\"L\",\"action\":\"play.toggle\"}"), "duplicate JSON fields rejected");
-		reject("{\"schemaVersion\":2,\"id\":\"test\",\"displayName\":\"Test\",\"bindings\":[]}", "future schema rejected");
+		reject("{\"schemaVersion\":3,\"id\":\"test\",\"displayName\":\"Test\",\"bindings\":[]}", "future schema rejected");
 		reject(Profile("{\"key\":\"k\",\"action\":\"play.toggle\"}"), "unsupported key rejected");
 		reject(Profile("{\"key\":\"K\",\"action\":\"play.toggle\",\"repeet\":true}"), "typo is not silently ignored");
 		reject("[]", "root object required");
@@ -71,6 +72,44 @@ int main()
 		Check(LoadBuiltin("native", profile, error) && profile.bindings.empty(), "native mode leaves mappings intact");
 		Check(LoadBuiltin("bilibili", profile, error) && profile.Find(0x26, 0)->value == 10, "Bilibili draft loads");
 		Check(!LoadBuiltin("unknown", profile, error) && profile.id == "bilibili", "unknown preset preserves state");
+		const auto right = *profile.Find(0x27, 0);
+		Check(right.hold && right.hold->rate == 3 && right.hold->delayMs == 300 && !right.repeat, "Bilibili hold definition");
+		Check(RouteKey(profile, 0x27, 0, true, true).consume && !RouteKey(profile, 0x27, 0, true, true).binding, "right repeat never seeks");
+		HoldGesture gesture;
+		Check(!gesture.Begin(*profile.Find(0x25, 0), 0), "ordinary key has no gesture");
+		Check(gesture.Begin(right, 1000) && gesture.Owns(0x27) && !gesture.Owns(0x25), "gesture owns only its key");
+		Check(!gesture.Tick(1299), "below hold threshold does not accelerate");
+		const auto tap = gesture.Release(1299);
+		Check(tap && tap->value == 5 && !gesture.Owns(0x27), "short release produces exactly one seek");
+		Check(!gesture.Release(1300), "duplicate release does nothing");
+		Check(gesture.Begin(right, 2000) && gesture.Tick(2300), "threshold begins long press");
+		Check(!gesture.Tick(2301) && !gesture.Tick(9000), "hold dispatches only once");
+		Check(!gesture.Release(9001), "long release never produces seek");
+		gesture.Begin(right, 10000);
+		Check(!gesture.Release(10300), "late key-up without timer cannot become tap");
+		gesture.Begin(right, 11000); gesture.Cancel();
+		Check(gesture.Owns(0x27) && !gesture.Tick(12000) && !gesture.Release(12001), "cancellation swallows repeats and release");
+		gesture.Begin(right, 13000); gesture.Tick(13300); gesture.Cancel();
+		Check(!gesture.Release(13301), "active hold cancellation cannot seek");
+		gesture.Begin(right, 14000); gesture.Cancel();
+		Check(gesture.Begin(right, 15000) && gesture.Release(15010).has_value(), "fresh press recovers lost release");
+		Binding mutableBinding = right;
+		gesture.Begin(mutableBinding, 16000); mutableBinding.hold.reset(); mutableBinding.value = 50;
+		Check(gesture.HeldBinding().hold && gesture.Release(16010)->value == 5, "gesture snapshots binding across preset changes");
+		auto holdProfile = [](const char* hold, int version = 2, bool repeat = false) {
+			return "{\"schemaVersion\":" + std::to_string(version) + ",\"id\":\"test\",\"displayName\":\"Test\",\"bindings\":[{\"key\":\"Right\",\"action\":\"seek.relative\",\"args\":{\"seconds\":5},\"repeat\":" + (repeat ? "true" : "false") + ",\"hold\":" + hold + "}]}";
+		};
+		const char* validHold = "{\"action\":\"rate.temporary\",\"args\":{\"rate\":2.5},\"delayMs\":400}";
+		reject(holdProfile(validHold, 1), "schema one cannot silently accept hold");
+		reject(holdProfile(validHold, 2, true), "hold and repeat conflict rejected");
+		for (const char* invalidHold : {"null", "{}", "{\"action\":\"shell.exec\",\"args\":{\"rate\":3},\"delayMs\":300}",
+			"{\"action\":\"rate.temporary\",\"args\":{\"rate\":0},\"delayMs\":300}", "{\"action\":\"rate.temporary\",\"args\":{\"rate\":4.1},\"delayMs\":300}",
+			"{\"action\":\"rate.temporary\",\"args\":{\"rate\":3},\"delayMs\":99}", "{\"action\":\"rate.temporary\",\"args\":{\"rate\":3},\"delayMs\":2001}",
+			"{\"action\":\"rate.temporary\",\"args\":{\"rate\":3},\"delayMs\":300.5}", "{\"action\":\"rate.temporary\",\"args\":{\"rate\":3,\"step\":1},\"delayMs\":300}",
+			"{\"action\":\"rate.temporary\",\"args\":{\"rate\":3},\"delayMs\":300,\"repeet\":true}", "{\"action\":\"rate.temporary\",\"args\":{\"rate\":3},\"delayMs\":300,\"delayMs\":400}"}) {
+			reject(holdProfile(invalidHold), "invalid hold configuration rejected atomically");
+		}
+		Check(ParseProfile(holdProfile(validHold), profile, error) && profile.Find(0x27, 0)->hold->rate == 2.5, "custom schema two hold accepted");
 		for (int i = 0; i < 20; ++i) {
 			Check(LoadBuiltin("youtube", profile, error) && profile.bindings.size() == 28, "switching does not accumulate bindings");
 			Check(LoadBuiltin("native", profile, error) && profile.bindings.empty(), "native switch clears overlay");

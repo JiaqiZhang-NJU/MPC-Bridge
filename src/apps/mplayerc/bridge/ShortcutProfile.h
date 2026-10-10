@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -17,12 +18,18 @@ enum class Action {
 	SubtitlesToggle, FrameForward, FrameBackward, PlaylistNext, PlaylistPrevious
 };
 
+struct HoldAction {
+	std::uint32_t delayMs = 300;
+	double rate = 3.0;
+};
+
 struct Binding {
 	std::uint16_t key = 0;
 	std::uint8_t modifiers = 0;
 	Action action = Action::None;
 	double value = 0;
 	bool repeat = false;
+	std::optional<HoldAction> hold;
 };
 
 struct ShortcutProfile {

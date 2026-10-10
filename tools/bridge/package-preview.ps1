@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$Parser,
-    [string]$Version = '0.1.0-preview.1'
+    [string]$Version = '0.1.0-preview.3'
 )
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid package version.' }
@@ -39,9 +39,9 @@ ShortcutProfile=native
 [OnlineServices]
 YDLEnable=1
 YDLExePath=yt-dlp.exe
-YDLVideoCodec=0
-YDLAudioCodec=0
-YDLMaxHeight=720
+YDLVideoCodec=H264
+YDLAudioCodec=AAC
+YDLMaxHeight=1080
 '@
 $ini | Set-Content (Join-Path $packageDirectory 'MPC-Bridge.ini') -Encoding Unicode
 $launcher = @'

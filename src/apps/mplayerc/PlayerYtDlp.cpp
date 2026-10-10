@@ -1307,6 +1307,17 @@ UINT YT_DLP::GetFilesCount() const
 	return count;
 }
 
+std::vector<int> YT_DLP::GetVideoHeights() const
+{
+	std::vector<int> heights;
+	for (const auto& format : mVideoFormats) {
+		if (format.height > 0) { heights.push_back(format.height); }
+	}
+	std::sort(heights.begin(), heights.end(), std::greater<int>());
+	heights.erase(std::unique(heights.begin(), heights.end()), heights.end());
+	return heights;
+}
+
 const YT_DLP::yt_vformat_t* YT_DLP::GetVFormat() const
 {
 	if (mIdxVideo < mVideoFormats.size()) {

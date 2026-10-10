@@ -248,6 +248,7 @@
     <ClInclude Include="AppSettings.h" />
     <ClInclude Include="bridge\ShortcutProfile.h" />
     <ClInclude Include="bridge\OnlineUrl.h" />
+    <ClInclude Include="bridge\HoldGesture.h" />
     <ClInclude Include="bridge\BuiltinProfiles.h" />
     <ClInclude Include="AuthDlg.h" />
     <ClInclude Include="BaseGraph.h" />

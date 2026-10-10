@@ -126,8 +126,8 @@ bool ParseProfile(std::string_view json, ShortcutProfile& output, std::string& e
 	}
 	if (!Fields(document, {"schemaVersion", "id", "displayName", "profileVersion", "reference", "bindings"}, error)) { return false; }
 	const auto version = document.FindMember("schemaVersion");
-	if (version == document.MemberEnd() || !version->value.IsInt() || version->value.GetInt() != 1) {
-		error = "Unsupported profile schemaVersion (expected 1)."; return false;
+	if (version == document.MemberEnd() || !version->value.IsInt() || (version->value.GetInt() != 1 && version->value.GetInt() != 2)) {
+		error = "Unsupported profile schemaVersion (expected 1 or 2)."; return false;
 	}
 	ShortcutProfile candidate;
 	if (!String(document, "id", candidate.id) || !String(document, "displayName", candidate.displayName)) {
@@ -151,7 +151,7 @@ bool ParseProfile(std::string_view json, ShortcutProfile& output, std::string& e
 	}
 	std::set<std::pair<std::uint16_t, std::uint8_t>> chords;
 	for (const auto& entry : bindings->value.GetArray()) {
-		if (!Fields(entry, {"key", "modifiers", "trigger", "action", "args", "repeat"}, error)) { return false; }
+		if (!Fields(entry, {"key", "modifiers", "trigger", "action", "args", "repeat", "hold"}, error)) { return false; }
 		Binding binding;
 		std::string name;
 		if (!String(entry, "key", name) || !Key(name, binding.key)) { error = "Unknown key name."; return false; }
@@ -177,6 +177,30 @@ bool ParseProfile(std::string_view json, ShortcutProfile& output, std::string& e
 			binding.repeat = repeat->value.GetBool();
 		}
 		if (!ReadAction(entry, binding, error)) { return false; }
+		const auto hold = entry.FindMember("hold");
+		if (hold != entry.MemberEnd()) {
+			if (version->value.GetInt() != 2 || binding.repeat) {
+				error = "Hold bindings require schemaVersion 2 and repeat=false."; return false;
+			}
+			if (!Fields(hold->value, {"action", "args", "delayMs"}, error)) { return false; }
+			std::string action;
+			if (!String(hold->value, "action", action) || action != "rate.temporary") {
+				error = "Hold action must be rate.temporary."; return false;
+			}
+			const auto delay = hold->value.FindMember("delayMs");
+			const auto args = hold->value.FindMember("args");
+			if (delay == hold->value.MemberEnd() || !delay->value.IsUint() || delay->value.GetUint() < 100 || delay->value.GetUint() > 2000
+				|| args == hold->value.MemberEnd() || !Fields(args->value, {"rate"}, error)) {
+				if (error.empty()) { error = "Hold delay must be 100-2000 milliseconds and args must contain rate."; }
+				return false;
+			}
+			const auto rate = args->value.FindMember("rate");
+			if (rate == args->value.MemberEnd() || !rate->value.IsNumber() || !std::isfinite(rate->value.GetDouble())
+				|| rate->value.GetDouble() < 0.25 || rate->value.GetDouble() > 4.0) {
+				error = "Temporary rate must be 0.25-4.0."; return false;
+			}
+			binding.hold = HoldAction{delay->value.GetUint(), rate->value.GetDouble()};
+		}
 		if (!chords.emplace(binding.key, binding.modifiers).second) { error = "Duplicate key binding: " + name; return false; }
 		candidate.bindings.push_back(binding);
 	}

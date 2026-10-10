@@ -176,6 +176,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_MESSAGE(WM_DWMSENDICONICLIVEPREVIEWBITMAP, OnDwmSendIconicLivePreviewBitmap)
 
 	ON_WM_SETFOCUS()
+	ON_WM_KILLFOCUS()
 	ON_WM_GETMINMAXINFO()
 	ON_WM_ENTERSIZEMOVE()
 	ON_WM_MOVE()
@@ -1010,6 +1011,7 @@ void CMainFrame::OnDestroy()
 
 void CMainFrame::OnClose()
 {
+	CancelBridgeHold();
 	DLog(L"CMainFrame::OnClose() : start");
 
 	m_bClosingState = true;
@@ -1634,6 +1636,12 @@ void CMainFrame::Dump(CDumpContext& dc) const
 
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame message handlers
+void CMainFrame::OnKillFocus(CWnd* pNewWnd)
+{
+	if (!pNewWnd || !IsBridgePlaybackWindow(pNewWnd->GetSafeHwnd())) { CancelBridgeHold(); }
+	__super::OnKillFocus(pNewWnd);
+}
+
 void CMainFrame::OnSetFocus(CWnd* pOldWnd)
 {
 	// forward focus to the view window
@@ -2322,6 +2330,7 @@ void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
 void CMainFrame::OnActivateApp(BOOL bActive, DWORD dwThreadID)
 {
 	__super::OnActivateApp(bActive, dwThreadID);
+	if (!bActive) { CancelBridgeHold(); }
 
 	if (bActive) {
 		if (!m_bHideCursor) {
@@ -3027,6 +3036,9 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 				m_wndInfoBar.SetLine(ResStr(IDS_INFOBAR_SUBTITLES), Subtitles);
 			}
 		break;
+		case TIMER_BRIDGE_HOLD:
+			OnBridgeHoldTimer();
+			break;
 		case TIMER_MOUSE_LEFT_LONGPRESS_SPEED: {
 			KillTimer(TIMER_MOUSE_LEFT_LONGPRESS_SPEED);
 			if (m_bLeftLongPressSpeedCandidate) {
@@ -3776,6 +3788,7 @@ bool CMainFrame::IsLeftLongPressSpeedAvailable(UINT nFlags) const
 
 void CMainFrame::BeginLeftLongPressSpeed(UINT nFlags, CPoint point)
 {
+	CancelBridgeHold();
 	CancelLeftLongPressSpeed(false);
 	m_bLeftLongPressSpeedDelayedClick = false;
 
@@ -4815,6 +4828,7 @@ void CMainFrame::OnFilePostOpenMedia(std::unique_ptr<OpenMediaData>& pOMD)
 	m_CMediaControls.Update();
 
 	m_bOpening = false;
+	ShowBridgeOnlineQuality();
 }
 
 void CMainFrame::OnFilePostCloseMedia()
@@ -8363,6 +8377,7 @@ void CMainFrame::OnPlayPlay()
 
 void CMainFrame::OnPlayPause()
 {
+	CancelBridgeHold();
 	OAFilterState fs = GetMediaState();
 
 	if (m_eMediaLoadState == MLS_LOADED && fs == State_Stopped) {
@@ -8407,6 +8422,7 @@ void CMainFrame::OnPlayPlayPause()
 
 void CMainFrame::OnPlayStop()
 {
+	CancelBridgeHold();
 	if (m_eMediaLoadState == MLS_LOADED) {
 		if (GetPlaybackMode() == PM_FILE) {
 			LONGLONG pos = 0;
@@ -8799,6 +8815,7 @@ void CMainFrame::OnUpdateGoto(CCmdUI* pCmdUI)
 
 void CMainFrame::SetPlayingRate(double rate)
 {
+	CancelBridgeHold();
 	if (m_eMediaLoadState != MLS_LOADED || m_bIsLiveOnline) {
 		return;
 	}
@@ -8839,6 +8856,7 @@ void CMainFrame::SetPlayingRate(double rate)
 
 void CMainFrame::OnPlayChangeRate(UINT nID)
 {
+	CancelBridgeHold();
 	if (m_eMediaLoadState != MLS_LOADED || m_bIsLiveOnline) {
 		return;
 	}
@@ -8909,6 +8927,7 @@ void CMainFrame::OnUpdatePlayChangeRate(CCmdUI* pCmdUI)
 
 void CMainFrame::OnPlayResetRate()
 {
+	CancelBridgeHold();
 	if (m_eMediaLoadState != MLS_LOADED) {
 		return;
 	}
@@ -11051,6 +11070,7 @@ CSize CMainFrame::GetVideoSize()
 
 void CMainFrame::ToggleFullscreen(bool fToNearest, bool fSwitchScreenResWhenHasTo)
 {
+	CancelBridgeHold();
 	if (IsD3DFullScreenMode()) {
 		return;
 	}
@@ -11296,6 +11316,7 @@ void CMainFrame::ToggleFullscreen(bool fToNearest, bool fSwitchScreenResWhenHasT
 
 void CMainFrame::ToggleD3DFullscreen(bool fSwitchScreenResWhenHasTo)
 {
+	CancelBridgeHold();
 	if (m_pD3DFS) {
 		CAppSettings& s = AfxGetAppSettings();
 
@@ -17721,6 +17742,7 @@ bool CMainFrame::StopCapture()
 
 void CMainFrame::ShowOptions(int idPage)
 {
+	CancelBridgeHold();
 	const auto bOnTop = (::GetWindowLongPtrW(m_hWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) == WS_EX_TOPMOST;
 	if (bOnTop) {
 		SetWindowPos(&wndNoTopMost, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -17957,6 +17979,7 @@ bool CMainFrame::DisplayChange()
 
 void CMainFrame::CloseMedia(BOOL bNextIsOpened/* = FALSE*/)
 {
+	CancelBridgeHold();
 	if (m_eMediaLoadState == MLS_CLOSING || m_eMediaLoadState == MLS_CLOSED) {
 		return;
 	}
@@ -19167,6 +19190,7 @@ void CMainFrame::OnFileOpenDirectory()
 
 HRESULT CMainFrame::CreateThumbnailToolbar()
 {
+	if (m_bClosingState) { return E_FAIL; }
 	if (!AfxGetAppSettings().fUseWin7TaskBar || !m_svgTaskbarButtons.IsLoad()) {
 		return E_FAIL;
 	}
@@ -19268,7 +19292,8 @@ HRESULT CMainFrame::CreateThumbnailToolbar()
 
 HRESULT CMainFrame::UpdateThumbarButton()
 {
-	if (!m_pTaskbarList) {
+	// Shutdown can dispatch pending taskbar callbacks after the playlist window is destroyed.
+	if (m_bClosingState || !m_pTaskbarList) {
 		return E_FAIL;
 	}
 
@@ -19391,6 +19416,7 @@ HRESULT CMainFrame::UpdateThumbarButton()
 
 HRESULT CMainFrame::UpdateThumbnailClip()
 {
+	if (m_bClosingState) { return E_FAIL; }
 	CheckPointer(m_pTaskbarList, E_FAIL);
 
 	CRect clientRect;
@@ -21017,6 +21043,7 @@ LRESULT CALLBACK CMainFrame::MenuHookProc(int nCode, WPARAM wParam, LPARAM lPara
 		auto pS = (PCWPSTRUCT)lParam;
 		if (pS->message == WM_ENTERMENULOOP) {
 			m_pThis->StopAutoHideCursor();
+			m_pThis->CancelBridgeHold();
 			m_pThis->m_bInMenu = true;
 		} else if (pS->message == WM_MENUSELECT && HIWORD(pS->wParam) == 0xFFFF && pS->lParam == NULL) {
 			m_pThis->StartAutoHideCursor();

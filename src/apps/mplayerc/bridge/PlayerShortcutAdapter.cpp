@@ -4,6 +4,7 @@
 #include "FullscreenWnd.h"
 #include "RateControl.h"
 #include "DSUtil/text.h"
+#include <cmath>
 
 namespace {
 bool ChineseUI()
@@ -47,6 +48,7 @@ void CMainFrame::AddBridgeProfileMenu(CMenu& menu)
 void CMainFrame::OnBridgeProfileSelected(UINT id)
 {
 	if (id < ID_BRIDGE_PROFILE_NATIVE || id > ID_BRIDGE_PROFILE_CUSTOM) { return; }
+	CancelBridgeHold();
 	auto& settings = AfxGetAppSettings();
 	CString error;
 	if (!settings.SetBridgeProfile(ProfileIds[id - ID_BRIDGE_PROFILE_NATIVE], settings.strBridgeCustomProfile, error)) {
@@ -68,11 +70,27 @@ void CMainFrame::OnUpdateBridgeProfile(CCmdUI* command)
 
 bool CMainFrame::HandleBridgeShortcut(MSG* message)
 {
-	if ((message->message != WM_KEYDOWN && message->message != WM_SYSKEYDOWN)
-		|| m_bInMenu || m_bInOptions) { return false; }
+	const bool down = message->message == WM_KEYDOWN || message->message == WM_SYSKEYDOWN;
+	const bool up = message->message == WM_KEYUP || message->message == WM_SYSKEYUP;
+	if (!down && !up) { return false; }
+	const auto key = static_cast<std::uint16_t>(message->wParam);
+	const bool repeat = (message->lParam & (1LL << 30)) != 0;
+	if (up && m_bridgeHold.Owns(key)) {
+		const auto tap = m_bridgeHold.Release(GetTickCount64());
+		CancelBridgeHold();
+		if (tap && !m_bInMenu && !m_bInOptions && IsBridgePlaybackWindow(message->hwnd)) {
+			ExecuteBridgeBinding(*tap);
+		}
+		return true;
+	}
+	if (down && m_bridgeHold.Owns(key)) {
+		if (repeat) { return true; }
+		CancelBridgeHold(); // A fresh press recovers from a missed release after losing focus.
+		m_bridgeHold.Release(GetTickCount64());
+	}
+	if (!down || m_bInMenu || m_bInOptions) { return false; }
 	// Only the playback surface owns these keys. Buttons, sliders and edits retain normal input.
-	const bool playbackFocus = message->hwnd == m_hWnd || message->hwnd == m_wndView.GetSafeHwnd()
-		|| (m_pFullscreenWnd && message->hwnd == m_pFullscreenWnd->GetSafeHwnd());
+	const bool playbackFocus = IsBridgePlaybackWindow(message->hwnd);
 	std::uint8_t modifiers = 0;
 	if (GetKeyState(VK_SHIFT) < 0) { modifiers |= Bridge::Shift; }
 	if (GetKeyState(VK_CONTROL) < 0) { modifiers |= Bridge::Control; }
@@ -83,14 +101,99 @@ bool CMainFrame::HandleBridgeShortcut(MSG* message)
 	if (!decision.consume) { return false; }
 	if (!decision.binding) { return true; }
 	const auto& binding = *decision.binding;
+	if (binding.hold) {
+		CancelBridgeHold();
+		CancelLeftLongPressSpeed(true);
+		m_bridgeHold.Begin(binding, GetTickCount64());
+		if (!SetTimer(TIMER_BRIDGE_HOLD, 25, nullptr)) { m_bridgeHold.Cancel(); }
+	} else {
+		ExecuteBridgeBinding(binding);
+	}
+	return true;
+}
+
+bool CMainFrame::IsBridgePlaybackWindow(HWND window) const
+{
+	return window == m_hWnd || window == m_wndView.GetSafeHwnd()
+		|| (m_pFullscreenWnd && window == m_pFullscreenWnd->GetSafeHwnd());
+}
+
+void CMainFrame::CancelBridgeHold()
+{
+	KillTimer(TIMER_BRIDGE_HOLD);
+	m_bridgeHold.Cancel();
+	if (m_bridgeHoldRateActive) {
+		m_bridgeHoldRateActive = false;
+		if (m_pMS && SUCCEEDED(m_pMS->SetRate(m_bridgeHoldPreviousRate))) {
+			m_PlaybackRate = m_bridgeHoldPreviousRate;
+		} else if (m_eMediaLoadState == MLS_LOADED) {
+			m_OSD.DisplayMessage(OSD_TOPRIGHT, ChineseUI() ? L"未能恢复播放速度。" : L"Could not restore playback speed.");
+		}
+	}
+}
+
+void CMainFrame::OnBridgeHoldTimer()
+{
+	const auto focus = ::GetFocus();
+	if (m_bInMenu || m_bInOptions || (focus && !IsBridgePlaybackWindow(focus))
+		|| m_eMediaLoadState != MLS_LOADED || GetPlaybackMode() != PM_FILE
+		|| (m_bridgeHoldRateActive && GetMediaState() != State_Running)) {
+		CancelBridgeHold();
+		return;
+	}
+	if (!m_bridgeHold.Tick(GetTickCount64())) { return; }
+	const bool live = m_YtDlp.GetFormatsCount() ? m_YtDlp.mIsLive : m_bIsLiveOnline;
+	if (live || GetMediaState() != State_Running || !m_pMS) {
+		CancelBridgeHold();
+		m_OSD.DisplayMessage(OSD_TOPRIGHT, ChineseUI() ? L"此时无法临时加速，请先播放视频。" : L"Temporary speed is unavailable. Start playback first.");
+		return;
+	}
+	double previous = 1.0;
+	const double rate = m_bridgeHold.HeldBinding().hold->rate;
+	if (FAILED(m_pMS->GetRate(&previous)) || !std::isfinite(previous) || previous <= 0
+		|| FAILED(m_pMS->SetRate(rate))) {
+		CancelBridgeHold();
+		m_OSD.DisplayMessage(OSD_TOPRIGHT, ChineseUI() ? L"此视频不支持临时加速。" : L"Temporary speed is unsupported for this video.");
+		return;
+	}
+	m_bridgeHoldPreviousRate = previous;
+	m_bridgeHoldRateActive = true;
+	m_PlaybackRate = rate;
+	CString text;
+	text.Format(ChineseUI() ? L"临时 %s 倍速，松开恢复" : L"Temporary %sx speed; release to restore", Rate2String(rate).GetString());
+	m_OSD.DisplayMessage(OSD_TOPRIGHT, text, 3000);
+}
+
+void CMainFrame::ShowBridgeOnlineQuality()
+{
+	const auto selected = m_YtDlp.GetVFormat();
+	if (!selected || selected->height <= 0) { return; }
+	CString available;
+	for (const int height : m_YtDlp.GetVideoHeights()) {
+		CString item;
+		item.Format(L"%dp", height);
+		if (!available.IsEmpty()) { available += L" / "; }
+		available += item;
+	}
+	CString text;
+	text.Format(ChineseUI() ? L"当前 %dp；可用 %s" : L"Current %dp; available %s", selected->height, available.GetString());
+	if (selected->height < AfxGetAppSettings().iYdlMaxHeight) {
+		text += ChineseUI() ? L"（已使用可用格式）" : L" (using an available format)";
+	}
+	m_wndInfoBar.SetLine(ChineseUI() ? L"在线清晰度" : L"Online quality", text);
+	m_OSD.DisplayMessage(OSD_TOPLEFT, text, 6000);
+}
+
+void CMainFrame::ExecuteBridgeBinding(const Bridge::Binding& binding)
+{
 	using Bridge::Action;
-	if (binding.action == Action::FullscreenToggle) { OnViewFullscreen(); return true; }
+	if (binding.action == Action::FullscreenToggle) { OnViewFullscreen(); return; }
 	if (binding.action == Action::FullscreenExit) {
 		if (m_bFullScreen || IsD3DFullScreenMode()) { OnViewFullscreen(); }
-		return true;
+		return;
 	}
-	if (binding.action == Action::None) { return true; }
-	if (m_eMediaLoadState != MLS_LOADED || GetPlaybackMode() != PM_FILE) { return true; }
+	if (binding.action == Action::None) { return; }
+	if (m_eMediaLoadState != MLS_LOADED || GetPlaybackMode() != PM_FILE) { return; }
 	// The native flag may be latched before a DASH source reports its duration.
 	// For extracted videos, use the extractor's explicit live status instead.
 	const bool liveSource = m_YtDlp.GetFormatsCount() ? m_YtDlp.mIsLive : m_bIsLiveOnline;
@@ -127,6 +230,7 @@ bool CMainFrame::HandleBridgeShortcut(MSG* message)
 		break;
 	}
 	case Action::RateRelative:
+		CancelBridgeHold();
 		if (!liveSource && m_pMS) {
 			const double rate = std::clamp(m_PlaybackRate + binding.value, 0.25, 4.0);
 			if (SUCCEEDED(m_pMS->SetRate(rate))) {
@@ -149,5 +253,4 @@ bool CMainFrame::HandleBridgeShortcut(MSG* message)
 		break;
 	default: break;
 	}
-	return true;
 }

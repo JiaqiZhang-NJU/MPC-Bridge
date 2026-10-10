@@ -613,7 +613,9 @@ bool CWebClientSocket::OnControls(CStringA& hdr, CStringA& body, CStringA& mime)
 	//durationstring.Format(L"%02d:%02d:%02d.%03d", (dur/3600000), (dur/60000)%60, (dur/1000)%60, dur%1000);
 	positionstring.Format(L"%02d:%02d:%02d", (pos/3600000), (pos/60000)%60, (pos/1000)%60);
 	durationstring.Format(L"%02d:%02d:%02d", (dur/3600000), (dur/60000)%60, (dur/1000)%60);
-	playbackrate = L"1";
+	double rate = 1.0;
+	if (m_pMainFrame->m_pMS) { m_pMainFrame->m_pMS->GetRate(&rate); }
+	playbackrate.Format(L"%.3f", rate);
 
 	CString volumelevel, muted;
 	volumelevel.Format(L"%d", m_pMainFrame->m_wndToolBar.m_volctrl.GetPos());
@@ -694,7 +696,9 @@ bool CWebClientSocket::OnVariables(CStringA& hdr, CStringA& body, CStringA& mime
 	//durationstring.Format(L"%02d:%02d:%02d.%03d", (dur/3600000), (dur/60000)%60, (dur/1000)%60, dur%1000);
 	positionstring.Format(L"%02d:%02d:%02d", (pos/3600000), (pos/60000)%60, (pos/1000)%60);
 	durationstring.Format(L"%02d:%02d:%02d", (dur/3600000), (dur/60000)%60, (dur/1000)%60);
-	playbackrate = L"1";
+	double rate = 1.0;
+	if (m_pMainFrame->m_pMS) { m_pMainFrame->m_pMS->GetRate(&rate); }
+	playbackrate.Format(L"%.3f", rate);
 
 	CString volumelevel, muted;
 	volumelevel.Format(L"%d", m_pMainFrame->m_wndToolBar.m_volctrl.GetPos());
@@ -730,6 +734,13 @@ bool CWebClientSocket::OnVariables(CStringA& hdr, CStringA& body, CStringA& mime
 		EndEnumFilters;
 	}
 
+	CString onlineHeight, onlineHeights;
+	if (const auto format = m_pMainFrame->m_YtDlp.GetVFormat()) { onlineHeight.Format(L"%d", format->height); }
+	for (const int height : m_pMainFrame->m_YtDlp.GetVideoHeights()) {
+		CString item; item.Format(L"%d", height);
+		if (!onlineHeights.IsEmpty()) { onlineHeights += L", "; }
+		onlineHeights += item;
+	}
 	m_pWebServer->LoadPage(IDR_HTML_VARIABLES, body, m_path);
 	body.Replace("[file]", UTF8(file));
 	body.Replace("[filepatharg]", UTF8Arg(path));
@@ -748,6 +759,8 @@ bool CWebClientSocket::OnVariables(CStringA& hdr, CStringA& body, CStringA& mime
 	body.Replace("[size]", UTF8(sizestring));
 	body.Replace("[reloadtime]", UTF8(reloadtime));
 	body.Replace("[hdr]", UTF8(HDR));
+	body.Replace("[onlineheight]", UTF8(onlineHeight));
+	body.Replace("[onlineheights]", UTF8(onlineHeights));
 	body.Replace("[version]", UTF8(MPC_VERSION_FULL_WSTR));
 
 	return true;

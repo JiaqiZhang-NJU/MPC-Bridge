@@ -96,7 +96,9 @@ function Test-OnlineEntry {
 
 function Stop-SmokePlayer {
     if ($script:smokeProcess -and !$script:smokeProcess.HasExited) {
-        Send-PlayerMessage $script:smokeWindow 0x111 816
+        # Queue exit like a normal UI command; synchronous cross-process SendMessage can
+        # re-enter shutdown inside a shell COM callback during initial window creation.
+        if (![BridgeSmokeNative]::PostMessage($script:smokeWindow, 0x111, [UIntPtr][uint64]816, [IntPtr]::Zero)) { throw 'Could not queue player exit.' }
         if (!$script:smokeProcess.WaitForExit(10000)) { throw 'Player did not exit normally.' }
         if ($script:smokeProcess.ExitCode -ne 0) { throw "Player exit code: $($script:smokeProcess.ExitCode)" }
     }
