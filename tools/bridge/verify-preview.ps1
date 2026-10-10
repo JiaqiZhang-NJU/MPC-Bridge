@@ -1,4 +1,4 @@
-﻿param([string]$Version = "0.1.0-preview.3")
+﻿param([string]$Version = "0.1.0-preview.4")
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid package version.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path

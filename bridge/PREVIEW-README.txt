@@ -1,6 +1,7 @@
 mpc-bridge0.1.0 预览版 · Windows x64
 
-解压到可写目录，双击 Launch-MPC-Bridge.cmd 启动。
+安装版：打开 Setup.exe，点击「安装」，完成后从桌面或开始菜单启动。
+便携版：解压到可写目录，双击 Launch-MPC-Bridge.cmd 启动。
 
 1. 在「查看」菜单的「快捷键预设」中选择 Bilibili（预览）或 YouTube。
 2. 「文件 → 打开在线视频」可粘贴完整的 Bilibili、YouTube 视频网页链接。
@@ -17,7 +18,9 @@ Bilibili 预设：右方向键短按松开后前进 5 秒；按住 300 毫秒临
 
 已完成：完整 x64 构建、148 项独立检查、播放器启动/预设持久化测试、Bilibili 1080p 和长按恢复实测。
 本次 YouTube 样例受当前 WinINet 网络连接失败阻塞，未完成播放回归；此前预览的播放证据见 DEVELOPMENT.md。
-尚未完成：完整手动 UI 回归、所有视频/清晰度兼容性验证和正式安装包。
+安装版默认安装到当前用户目录，无需管理员权限；升级和卸载保留配置。
+安装包未做代码签名，Windows 可能显示未知发布者提示。
+尚未完成：完整手动 UI 回归和所有视频/清晰度兼容性验证。
 
 这是基于 MPC-BE 的非官方扩展预览。解码与渲染继续使用 MPC-BE。
 MPC-BE 源码：https://github.com/Aleksoid1978/MPC-BE

@@ -2,6 +2,10 @@
 
 在 MPC-BE 上增加平台快捷键预设和在线视频入口，复用原播放器的解码、渲染和播放功能。
 
+## 安装
+
+[Windows x64 安装包与便携版](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.1.0-preview.4)。安装包仅为当前用户安装，点击「安装」即可完成；附带解析器、桌面/开始菜单入口和独立卸载登记。升级与卸载保留配置；当前发布未签名。安装器构建和验证见 [INSTALLER.md](../tools/bridge/INSTALLER.md)。
+
 ## 当前功能
 
 - 菜单中的「快捷键预设」可选择原生、Bilibili（预览）、YouTube 和自定义。
