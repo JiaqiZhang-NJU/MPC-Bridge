@@ -96,7 +96,7 @@ $manifest = @{
     sourceArchiveSha256 = (Get-FileHash $sourceArchive -Algorithm SHA256).Hash
     submoduleRevisions = $submodules
     files = @(Get-ChildItem $packageDirectory -File -Recurse | ForEach-Object {
-        @{ path = $_.FullName.Substring($packageDirectory.Length + 1); sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+        @{ path = $_.FullName.Substring($packageDirectory.Length + 1); sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
     })
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $packageDirectory 'build-manifest.json') -Encoding UTF8
