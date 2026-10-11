@@ -480,6 +480,18 @@ struct MediaCache::Impl {
         }
         return false;
     }
+    bool Urgent(Resource& resource, std::uint64_t offset) {
+        double now;
+        { std::lock_guard<std::mutex> lock(mutex); now = position; }
+        std::unique_lock<std::timed_mutex> lock(resource.mutex, std::try_to_lock);
+        if (!lock.owns_lock()) return false;
+        if (resource.index.empty()) return true;
+        const auto chunk = offset / Chunk;
+        for (const auto& track : resource.index)
+            for (const auto& range : track.Window(now, now + 2))
+                if (chunk >= range.first / Chunk && chunk <= range.last / Chunk) return true;
+        return false;
+    }
     void Serve(SOCKET client) {
         const auto epoch = readerEpoch.load();
         std::string header; char buffer[2048];
@@ -507,7 +519,9 @@ struct MediaCache::Impl {
         {
             std::lock_guard<std::mutex> lock(mutex);
             const auto url = L"http://127.0.0.1:" + std::to_wstring(port) + std::wstring(target.begin(), target.end());
-            auto found = resources.find(url); if (!quiescing && found != resources.end()) resource = found->second;
+            // Closing filters can reconnect once before their worker stops. Keep their registered
+            // routes readable during a switch; only preloading is quiesced until Select resumes it.
+            auto found = resources.find(url); if (!stopping && found != resources.end()) resource = found->second;
         }
         auto error = [&](int status, const std::string& extra = "") {
             const auto text = "HTTP/1.1 " + std::to_string(status) + " Error\r\nConnection: close\r\nContent-Length: 0\r\n" + extra + "\r\n";
@@ -539,7 +553,18 @@ struct MediaCache::Impl {
             }
             if (stopping || epoch != readerEpoch) break;
             count = static_cast<std::size_t>(std::min<std::uint64_t>(Chunk - offset % Chunk, range.last - offset + 1));
-        } while (Read(*resource, offset, count, true, data));
+            const auto deadline = Clock::now() + std::chrono::seconds(8);
+            bool ready = false;
+            while (!stopping && epoch == readerEpoch && Clock::now() < deadline) {
+                const bool urgent = Urgent(*resource, offset);
+                if (Read(*resource, offset, count, urgent, data, deadline)) { ready = true; break; }
+                if (urgent) break;
+                // Future data requested by an open-ended native reader is still preloading.
+                // A short outage must not replace a playable graph merely because its tail failed.
+                std::unique_lock<std::mutex> lock(mutex); wake.wait_for(lock, std::chrono::milliseconds(250));
+            }
+            if (!ready) break;
+        } while (!stopping && epoch == readerEpoch);
     }
     void Preload() {
         while (!stopping) {
@@ -648,7 +673,7 @@ CacheStatus MediaCache::Status() const {
     { std::lock_guard<std::mutex> store(impl->storeMutex); result.bytes = impl->bytes; }
     result.requests = impl->requests; result.hits = impl->hits;
     result.failed = impl->failed;
-    result.active = !selected.empty(); result.forwardSeconds = result.active ? 1e9 : -1;
+    result.active = !impl->stopping && !selected.empty(); result.forwardSeconds = result.active ? 1e9 : -1;
     for (const auto& resource : selected) {
         // Index publication is protected by the representation mutex.
         std::unique_lock<std::timed_mutex> resourceLock(resource->mutex, std::try_to_lock);

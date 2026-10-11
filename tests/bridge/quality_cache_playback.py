@@ -183,15 +183,35 @@ def main():
         assert not user.IsWindow(ctypes.c_void_p(popup)), 'cache settings dialog did not close'
         saved_ini = player.with_suffix('.ini').read_bytes()
         assert 'ForwardSeconds=45' in saved_ini.decode('utf-16' if saved_ini.startswith(b'\xff\xfe') else 'utf-8-sig'), 'value was not saved by the dialog'
-        user.PostMessageW(hwnd,0x111,803,0) # close media
+        user.PostMessageW(hwnd,0x111,50200,0) # begin a switch, then cancel it with explicit close
+        user.PostMessageW(hwnd,0x111,803,0)
         wait(port, lambda s: s['onlineheight']=='' and float(s['cachebytes'])==0)
+        time.sleep(1)
+        assert state(port)['onlineheight']=='', 'a cancelled switch reopened the video'
         menu = quality_menu(hwnd)
         assert user.GetMenuState(menu,50200,0)==0xffffffff, 'stale quality options after close'
     finally:
         if not hwnd: hwnd = window(process.pid)
         if hwnd: user.PostMessageW(hwnd,0x111,816,0)
         try: process.wait(10)
-        except subprocess.TimeoutExpired: process.kill(); process.wait(); raise AssertionError('player exit hung')
+        except subprocess.TimeoutExpired:
+            popup=user.GetLastActivePopup(hwnd) if hwnd else None
+            text=ctypes.create_unicode_buffer(2048)
+            if popup:
+                user.GetWindowTextW(ctypes.c_void_p(popup),text,2048)
+                print('Exit diagnostic: popup',popup,'title',text.value,flush=True)
+                def child_text(child,_):
+                    caption=ctypes.create_unicode_buffer(2048)
+                    user.GetWindowTextW(ctypes.c_void_p(child),caption,2048)
+                    if caption.value: print('Control:',caption.value,flush=True)
+                    return True
+                user.EnumChildWindows(ctypes.c_void_p(popup),CB(child_text),0)
+            debugger=pathlib.Path('C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe')
+            if debugger.exists():
+                with (folder/'thread-stacks.log').open('w',encoding='utf-8') as output:
+                    try: subprocess.run([str(debugger),'-y',str(ROOT/'_bin/mpc-be_x64'),'-p',str(process.pid),'-c','.reload /f;~* kb;qd'],stdout=output,stderr=subprocess.STDOUT,timeout=45)
+                    except subprocess.TimeoutExpired: pass
+            process.kill(); process.wait(); raise AssertionError('player exit hung')
         server.shutdown()
     assert process.returncode == 0, process.returncode
     ini = player.with_suffix('.ini').read_bytes()

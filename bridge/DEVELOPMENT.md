@@ -4,7 +4,7 @@
 
 本次日志：`player-quality-cache-build-final.log`、`core-tests-cache-final.log`、`cache-integration-final.log`、`cache-native-final-2.log`、`quality-cache-playback-final.log`、`player-cache-smoke-final.log`、`public-quality-bilibili-1/2/3.log`、`playback-bilibili-cache-6.log`、`cache-performance.log`。模型检查为原有 148 项 + 新增 28 项。测试过程中修正了索引完整性、取消时序与暂停下的开放范围读取；设置保存误报来自跨进程测试调用 SetWindowText，改用 WM_SETTEXT/WM_GETTEXT 后实测通过。临时诊断已移除，测试数据与内部计划不进入 Git 或源码 ZIP。
 
-交付采用本地 `0.2.0-dev.1` 开发包，不创建公开 Release，也不把 M4 标记为完成。完整签名地址自动刷新、资源/原生跳转性能验收及手动回归仍待后续开发；现有公开 preview.4 下载链接保持有效。
+交付采用本地 `0.2.0-dev.2` 开发包，不创建公开 Release，也不把 M4 标记为完成。dev.2 补上切换中的显式关闭取消，重新打开恢复缓存设置，避免已取消的切换重新打开视频。线程栈确认：取消加载时 UI 线程等待打开事件，图线程同步读取播放列表控件，双方互相等待；打开事件的等待改为继续处理同步界面消息。`quality-cache-dev2-uiwait-playback.log` 完整受控播放测试通过，包含开始切换后立即关闭、不重新打开视频和正常退出。未来数据的开放范围读取按预加载处理，短暂断网不会仅因远端尾部读取失败就替换仍可播放的图链。完整签名地址自动刷新、资源/原生跳转性能验收及手动回归仍待后续开发；现有公开 preview.4 下载链接保持有效。
 
 2026-10-10，基于 MPC-BE 上游提交 `9186796dd32e70dc36c924078816c7d1d9cb79d0`，开发分支 `codex/mpc-bridge`。已创建远程 fork `JiaqiZhang-NJU/MPC-Bridge`；本地提交是否已发布应以 Git 远程记录为准，预览包随附确切源码和依赖快照。
 

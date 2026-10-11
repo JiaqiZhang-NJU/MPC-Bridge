@@ -7156,6 +7156,9 @@ void CMainFrame::OnUpdateFileProperties(CCmdUI* pCmdUI)
 
 void CMainFrame::OnFileCloseMedia()
 {
+	// An explicit command may be dispatched reentrantly while a quality switch closes its old graph.
+	m_bridgeQualitySwitch = {};
+	m_bYoutubeOpened = false;
 	CloseMedia();
 }
 
@@ -17947,6 +17950,7 @@ void CMainFrame::OpenMedia(std::unique_ptr<OpenMediaData> pOMD)
 
 	SetLoadState(MLS_LOADING);
 	m_YtDlp.ResetExtractionCancellation();
+	if (!m_bridgeQualitySwitch.pending) m_bridgeCacheBypassSession = false;
 
 	if (bUseThread) {
 		m_hGraphThreadEventOpen.ResetEvent();
@@ -18036,7 +18040,15 @@ void CMainFrame::CloseMedia(BOOL bNextIsOpened/* = FALSE*/)
 				TerminateProcess(GetCurrentProcess(), 0xDEAD);
 			}
 			*/
-			WaitForSingleObject(m_hGraphThreadEventOpen, INFINITE);
+			// Rendering initialization can synchronously call the UI thread while opening is aborted.
+			// Keep servicing sent callbacks, as the graph-close wait below already does.
+			HANDLE opening = m_hGraphThreadEventOpen;
+			DWORD openWait;
+			while ((openWait = MsgWaitForMultipleObjects(1, &opening, FALSE, INFINITE, QS_SENDMESSAGE)) != WAIT_OBJECT_0) {
+				if (openWait != WAIT_OBJECT_0 + 1) break;
+				MSG callback;
+				PeekMessageW(&callback, nullptr, 0, 0, PM_NOREMOVE);
+			}
 			EndWaitCursor();
 
 			MSG msg;

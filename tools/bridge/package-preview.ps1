@@ -3,6 +3,7 @@ param(
     [string]$Version = '0.1.0-preview.4'
 )
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid package version.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $trackedChanges = & git -C $repoRoot status --porcelain --untracked-files=no
@@ -79,7 +80,7 @@ foreach ($line in $submodules) {
     Expand-Archive -LiteralPath $dependencyArchive -DestinationPath $sourceDirectory -Force
     $submoduleIndex++
 }
-Compress-Archive -Path $sourceDirectory -DestinationPath $sourceArchive
+[IO.Compression.ZipFile]::CreateFromDirectory($sourceDirectory, $sourceArchive, [IO.Compression.CompressionLevel]::Optimal, $true)
 @"
 This package was built from MPC-Bridge revision $($revision.Trim()).
 The matching source archive is $(Split-Path $sourceArchive -Leaf), supplied alongside this portable ZIP.
@@ -107,7 +108,7 @@ $manifest = @{
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $packageDirectory 'build-manifest.json') -Encoding UTF8
 $archivePath = "$packageDirectory.zip"
-Compress-Archive -Path $packageDirectory -DestinationPath $archivePath
+[IO.Compression.ZipFile]::CreateFromDirectory($packageDirectory, $archivePath, [IO.Compression.CompressionLevel]::Optimal, $true)
 Write-Output "Preview directory: $packageDirectory"
 Write-Output "Preview ZIP: $archivePath"
 Write-Output "Source ZIP: $sourceArchive"

@@ -98,6 +98,7 @@ void CMainFrame::SwitchBridgeQuality(UINT index, bool automatic, bool force)
     change.pending = true;
     change.internalClose = true; m_bYoutubeOpened = true;
     CloseMedia(); change.internalClose = false;
+    if (!change.pending) return; // a reentrant explicit close cancelled this operation
     if (!m_YtDlp.ChangeFormats(index)) { change.pending = false; return; }
     if (!OpenCurPlaylistItem(change.position, FALSE)) FinishBridgeQualitySwitch(false);
 }
@@ -109,6 +110,7 @@ bool CMainFrame::FinishBridgeQualitySwitch(bool success)
     if (!success && !change.rollback) {
         change.rollback = true; change.internalClose = true; m_bYoutubeOpened = true;
         CloseMedia(); change.internalClose = false;
+        if (!change.pending) return true;
         m_YtDlp.ChangeFormats(change.oldIndex);
         if (OpenCurPlaylistItem(change.position, FALSE)) return true;
     }
@@ -162,14 +164,15 @@ void CMainFrame::AttachBridgeCache(OpenFileData& ofd)
 
 void CMainFrame::CloseBridgeSession()
 {
-    if (m_bridgeQualitySwitch.internalClose || m_bYoutubeOpened) {
+    if (m_bridgeQualitySwitch.internalClose && !m_bClosingState) {
         std::shared_ptr<Bridge::MediaCache> cache;
         { std::lock_guard<std::mutex> lock(m_bridgeCacheMutex); cache = m_bridgeCache; }
         if (cache) cache->CancelReaders();
         return;
     }
+    m_bYoutubeOpened = false; // an explicit close cancels the switch instead of preserving its metadata
     m_bridgeQualitySwitch = {}; m_bridgeQualityAutomatic = true;
-    m_bridgeCacheBypassSession = false;
+    m_bridgeCacheBypassSession = true; // prevent an aborted opening thread from creating another cache
     std::shared_ptr<Bridge::MediaCache> cache;
     { std::lock_guard<std::mutex> lock(m_bridgeCacheMutex); cache = std::move(m_bridgeCache); m_bridgeCacheStatus = {}; }
     if (cache) cache->Cancel(); // readers must wake before CloseMedia waits for the graph thread
