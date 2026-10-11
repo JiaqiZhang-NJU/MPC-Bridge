@@ -37,6 +37,7 @@ private:
 	enum tooltip_state { TOOLTIP_HIDDEN, TOOLTIP_TRIGGERED, TOOLTIP_VISIBLE };
 
 	REFERENCE_TIME m_stop           = 0;
+	REFERENCE_TIME m_bridgeCacheStart = 0, m_bridgeCacheEnd = 0;
 	REFERENCE_TIME m_pos            = 0;
 	REFERENCE_TIME m_posreal        = 0;
 	REFERENCE_TIME m_pos_preview    = 0;
@@ -113,6 +114,10 @@ public:
 	REFERENCE_TIME GetRange() const { return m_stop; }
 	void SetRange(const REFERENCE_TIME stop);
 	void SetPos(const REFERENCE_TIME pos);
+	void SetBridgeCache(REFERENCE_TIME position, REFERENCE_TIME forward) {
+		m_bridgeCacheStart = position; m_bridgeCacheEnd = position + forward;
+		if (GetSafeHwnd()) Invalidate(FALSE);
+	}
 
 	REFERENCE_TIME GetPos() const { return m_pos; }
 	REFERENCE_TIME GetPosReal() const { return m_posreal; }

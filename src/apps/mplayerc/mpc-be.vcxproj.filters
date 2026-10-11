@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClInclude Include="bridge\MediaCache.h"><Filter>Online</Filter></ClInclude>
+    <ClInclude Include="bridge\MediaCacheModel.h"><Filter>Online</Filter></ClInclude>
+    <ClInclude Include="bridge\QualityModel.h"><Filter>Online</Filter></ClInclude>
+    <ClInclude Include="bridge\CacheSettingsProfile.h"><Filter>Online</Filter></ClInclude>
     <Filter Include="Source Files">
       <UniqueIdentifier>{a3fe93d1-ca72-4b39-b871-30903c306f42}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
@@ -63,6 +67,10 @@
     <ClCompile Include="bridge\OnlineUrl.cpp">
       <Filter>Online</Filter>
     </ClCompile>
+    <ClCompile Include="bridge\MediaCache.cpp"><Filter>Online</Filter></ClCompile>
+    <ClCompile Include="bridge\MediaTimeIndex.cpp"><Filter>Online</Filter></ClCompile>
+    <ClCompile Include="bridge\PlayerQualityAdapter.cpp"><Filter>Online</Filter></ClCompile>
+    <ClCompile Include="bridge\CacheSettingsDialog.cpp"><Filter>Dialogs</Filter></ClCompile>
     <ClCompile Include="bridge\OnlineVideoDialog.cpp">
       <Filter>Online</Filter>
     </ClCompile>

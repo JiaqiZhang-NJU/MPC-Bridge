@@ -20,6 +20,7 @@
  */
 
 #include "stdafx.h"
+#include "bridge/OnlineUrl.h"
 #include "DSUtil/MediaRequestHeaders.h"
 
 #include "MainFrm.h"
@@ -254,6 +255,11 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_UPDATE_COMMAND_UI(ID_FILE_OPENFILE, OnUpdateFileOpen)
 	ON_COMMAND(ID_FILE_OPENFILEURL, OnFileOpenMedia)
 	ON_COMMAND(ID_BRIDGE_OPEN_ONLINE, OnBridgeOpenOnline)
+	ON_COMMAND(ID_BRIDGE_CACHE_SETTINGS, OnBridgeCacheSettings)
+	ON_COMMAND_RANGE(ID_BRIDGE_QUALITY_DEFAULT, ID_BRIDGE_QUALITY_DEFAULT, OnBridgeQualitySelected)
+	ON_COMMAND_RANGE(ID_BRIDGE_QUALITY_START, ID_BRIDGE_QUALITY_END, OnBridgeQualitySelected)
+	ON_UPDATE_COMMAND_UI(ID_BRIDGE_QUALITY_DEFAULT, OnUpdateBridgeQuality)
+	ON_UPDATE_COMMAND_UI_RANGE(ID_BRIDGE_QUALITY_START, ID_BRIDGE_QUALITY_END, OnUpdateBridgeQuality)
 	ON_UPDATE_COMMAND_UI(ID_BRIDGE_OPEN_ONLINE, OnUpdateFileOpen)
 	ON_UPDATE_COMMAND_UI(ID_FILE_OPENFILEURL, OnUpdateFileOpen)
 	ON_WM_COPYDATA()
@@ -711,6 +717,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	SetColorTitle();
 
 	m_popupMenu.LoadMenuW(IDR_POPUP);
+	if (auto root = GetMenu()) AddBridgeQualityMenu(*root);
 	m_popupMainMenu.LoadMenuW(IDR_POPUPMAIN);
 
 	m_VideoFrameMenu.LoadMenuW(IDR_POPUP_VIDEOFRAME);
@@ -2657,6 +2664,7 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 			}
 			break;
 		case TIMER_STREAMPOSPOLLER2:
+			UpdateBridgeCache();
 			if (m_eMediaLoadState == MLS_LOADED) {
 				auto& s = AfxGetAppSettings();
 				if (s.nCS < CS_STATUSBAR) {
@@ -3673,6 +3681,7 @@ LRESULT CMainFrame::OnPostOpen(WPARAM wParam, LPARAM lParam)
 	m_bRememberSelectedTracks = true;
 
 	if (!m_closingmsg.IsEmpty()) {
+		if (m_bridgeQualitySwitch.pending && FinishBridgeQualitySwitch(false)) return 0;
 		CString aborted(ResStr(IDS_AG_ABORTED));
 
 		CloseMedia();
@@ -4267,6 +4276,8 @@ void CMainFrame::OnInitMenu(CMenu* pMenu)
 void CMainFrame::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMenu)
 {
 	if (!bSysMenu) {
+		if (auto root = GetMenu()) AddBridgeQualityMenu(*root);
+		if (pPopupMenu->GetMenuItemID(0) == ID_BRIDGE_QUALITY_DEFAULT) SetupBridgeQualityMenu(*pPopupMenu);
 		AddBridgeProfileMenu(*pPopupMenu);
 	}
 	UINT uiMenuCount = pPopupMenu->GetMenuItemCount();
@@ -4477,6 +4488,7 @@ void CMainFrame::OnUnInitMenuPopup(CMenu* pPopupMenu, UINT nFlags)
 BOOL CMainFrame::OnMenu(CMenu* pMenu)
 {
 	CheckPointer(pMenu, FALSE);
+	AddBridgeQualityMenu(*pMenu);
 
 	// skip empty menu
 	if (!pMenu->GetMenuItemCount()) {
@@ -4829,6 +4841,7 @@ void CMainFrame::OnFilePostOpenMedia(std::unique_ptr<OpenMediaData>& pOMD)
 
 	m_bOpening = false;
 	ShowBridgeOnlineQuality();
+	FinishBridgeQualitySwitch(true);
 }
 
 void CMainFrame::OnFilePostCloseMedia()
@@ -10213,15 +10226,7 @@ void CMainFrame::OnNavigateChapters(UINT nID)
 		if (m_YtDlp.GetFormatsCount() > 1) {
 			LPCWSTR mainUrl = m_YtDlp.GetMainStreamUrl(id);
 			if (mainUrl && m_PlaybackInfo.RenderedPath != mainUrl) {
-				m_bYoutubeOpened = true;
-
-				REFERENCE_TIME rtNow = INVALID_TIME;
-				m_pMS->GetCurrentPosition(&rtNow);
-
-				SendMessageW(WM_COMMAND, ID_FILE_CLOSEMEDIA);
-				m_YtDlp.ChangeFormats(id);
-
-				OpenCurPlaylistItem(rtNow, FALSE);
+				SwitchBridgeQuality(id, false);
 				return;
 			}
 
@@ -14399,13 +14404,17 @@ CStringW CMainFrame::CheckOpenYtDlp(OpenFileData& ofd)
 		const auto ext = GetFileExt(url).MakeLower();
 
 		bool ok = (ext != L".m3u" && ext != L".m3u8");
-		if (ok) {
+		std::string normalized, validationError;
+		const auto urlUtf8 = WStrToUTF8(url);
+		const bool supportedPage = Bridge::NormalizeOnlineUrl(std::string_view(urlUtf8.GetString(), urlUtf8.GetLength()), normalized, validationError);
+		if (ok && !supportedPage) {
 			ok = Content::Online::CheckConnect(url);
 		}
 
 		if (ok) {
 			CString online_hdr;
-			Content::Online::GetHeader(url, online_hdr);
+			if (supportedPage) online_hdr = L"Content-Type: text/html";
+			else Content::Online::GetHeader(url, online_hdr);
 			if (!online_hdr.IsEmpty()) {
 				online_hdr.Trim(L"\r\n "); online_hdr.Replace(L"\r", L"");
 				std::list<CString> params;
@@ -14455,6 +14464,7 @@ CStringW CMainFrame::CheckOpenYtDlp(OpenFileData& ofd)
 	}
 
 	m_bYoutubeOpening = false;
+	if (!youtubeUrl.IsEmpty()) AttachBridgeCache(ofd);
 
 	return youtubeUrl;
 }
@@ -17936,6 +17946,7 @@ void CMainFrame::OpenMedia(std::unique_ptr<OpenMediaData> pOMD)
 	m_bDelaySetOutputRect = true;
 
 	SetLoadState(MLS_LOADING);
+	m_YtDlp.ResetExtractionCancellation();
 
 	if (bUseThread) {
 		m_hGraphThreadEventOpen.ResetEvent();
@@ -17980,6 +17991,8 @@ bool CMainFrame::DisplayChange()
 void CMainFrame::CloseMedia(BOOL bNextIsOpened/* = FALSE*/)
 {
 	CancelBridgeHold();
+	CloseBridgeSession();
+	m_YtDlp.CancelExtraction();
 	if (m_eMediaLoadState == MLS_CLOSING || m_eMediaLoadState == MLS_CLOSED) {
 		return;
 	}

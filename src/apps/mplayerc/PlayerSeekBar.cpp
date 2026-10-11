@@ -277,6 +277,13 @@ void CPlayerSeekBar::OnPaint()
 	const bool bEnabled = m_bEnabled && m_stop > 0;
 	const COLORREF repeatAB = COLORREF(RGB(242, 13, 13));
 	const CRect channelRect(GetChannelRect());
+	auto drawCache = [&](CDC& target) {
+		if (!bEnabled || m_bridgeCacheEnd <= m_bridgeCacheStart) return;
+		const int first = channelRect.left + static_cast<int>(channelRect.Width() * std::clamp(m_bridgeCacheStart, 0LL, m_stop) / m_stop);
+		const int last = channelRect.left + static_cast<int>(channelRect.Width() * std::clamp(m_bridgeCacheEnd, 0LL, m_stop) / m_stop);
+		CRect cache(first, channelRect.bottom - std::max(2, m_scaleY2), last, channelRect.bottom);
+		target.FillSolidRect(cache, RGB(92, 163, 194));
+	};
 
 	if (s.bUseDarkTheme) {
 		auto funcMarkChannelTheme = [&](REFERENCE_TIME pos, CDC& memdc, CPen& pen, const CRect& rect, bool thick) {
@@ -449,6 +456,7 @@ void CPlayerSeekBar::OnPaint()
 			}
 		}
 
+		drawCache(memdc);
 		dc.BitBlt(r.left, r.top, r.Width(), r.Height(), &memdc, 0, 0, SRCCOPY);
 		DeleteObject(memdc.SelectObject(bmOld));
 		memdc.DeleteDC();
@@ -576,6 +584,7 @@ void CPlayerSeekBar::OnPaint()
 		// channel
 		{
 			dc.FillSolidRect(&channelRect, bEnabled ? white : bkg);
+			drawCache(dc);
 			CRect r(channelRect);
 			r.InflateRect(1, 1);
 			dc.Draw3dRect(&r, shadow, light);

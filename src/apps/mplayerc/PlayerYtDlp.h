@@ -19,6 +19,7 @@
  */
 
 #pragma once
+#include <atomic>
 
 #include "OpenMediaData.h"
 #include "rapidjsonHelper.h"
@@ -114,6 +115,7 @@ public:
 	std::vector<Chapters> mChapters;
 
 private:
+	std::atomic<bool> mCancelExtraction{false};
 	yt_thumb_t      mThumbnail;
 	std::vector<yt_sub_t> mSubtitles;
 
@@ -146,6 +148,8 @@ private:
 	////////////////////////////////////////////////
 public:
 	void Clear();
+	void ResetExtractionCancellation() { mCancelExtraction = false; }
+	void CancelExtraction() { mCancelExtraction = true; }
 
 	bool Parse_URL(const CStringW& url);
 	bool ChangeFormats(UINT index);
@@ -161,6 +165,10 @@ public:
 
 	const yt_vformat_t* GetVFormat() const;
 	std::vector<int> GetVideoHeights() const;
+	std::vector<yt_vformat_t> GetVideoFormats() const { return mVideoFormats; }
+	UINT GetSelectedIndex() const { return mIdxVideo < mVideoFormats.size() ? mIdxVideo : mIdxAudio < mAudioFormats.size() ? static_cast<UINT>(mVideoFormats.size()) + mIdxAudio : UINT_MAX; }
+	UINT GetDefaultVideoIndex();
+	UINT GetHeightIndex(int height) const;
 	const yt_aformat_t* GetAFormat() const;
 	const std::vector<yt_sub_t>& GetSubtitles() const;
 	const yt_thumb_t* GetThumbnail() const;

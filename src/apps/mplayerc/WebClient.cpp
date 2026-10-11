@@ -761,6 +761,16 @@ bool CWebClientSocket::OnVariables(CStringA& hdr, CStringA& body, CStringA& mime
 	body.Replace("[hdr]", UTF8(HDR));
 	body.Replace("[onlineheight]", UTF8(onlineHeight));
 	body.Replace("[onlineheights]", UTF8(onlineHeights));
+	const auto cache = m_pMainFrame->GetBridgeCacheStatus();
+	CString cachedSeconds, cachedBytes, cacheRequests, cacheHits;
+	cachedSeconds.Format(L"%.3f", cache.forwardSeconds);
+	cachedBytes.Format(L"%llu", cache.bytes);
+	cacheRequests.Format(L"%llu", cache.requests);
+	cacheHits.Format(L"%llu", cache.hits);
+	body.Replace("[cacheforward]", UTF8(cachedSeconds));
+	body.Replace("[cachebytes]", UTF8(cachedBytes));
+	body.Replace("[cacherequests]", UTF8(cacheRequests));
+	body.Replace("[cachehits]", UTF8(cacheHits));
 	body.Replace("[version]", UTF8(MPC_VERSION_FULL_WSTR));
 
 	return true;

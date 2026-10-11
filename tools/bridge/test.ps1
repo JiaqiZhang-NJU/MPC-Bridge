@@ -14,3 +14,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Embedded preset validation failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Shortcut profile compilation failed.' }
 & (Join-Path $testOutput 'shortcut-profile-tests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Shortcut profile tests failed.' }
+& $Compiler -std=c++17 -Wall -Wextra -Werror -pedantic -I (Join-Path $repoRoot 'src') `
+    (Join-Path $repoRoot 'tests/bridge/cache_model_tests.cpp') `
+    -static-libgcc -static-libstdc++ -o (Join-Path $testOutput 'cache-model-tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Cache model compilation failed.' }
+& (Join-Path $testOutput 'cache-model-tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Cache/quality model tests failed.' }

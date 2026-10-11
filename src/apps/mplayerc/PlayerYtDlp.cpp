@@ -22,12 +22,13 @@
 #include "DSUtil/Filehandle.h"
 #include "DSUtil/text.h"
 #include "PlayerYtDlp.h"
+#include "bridge/QualityModel.h"
 #include "DSUtil/HTTPAsync.h"
 #include "DSUtil/MediaRequestHeaders.h"
 
 #define bufsize (2ul * KILOBYTE)
 
-static bool RunYtDlp(LPCWSTR ydl_path, LPCWSTR yt_args, LPCWSTR url, CStringA& buf_out)
+static bool RunYtDlp(LPCWSTR ydl_path, LPCWSTR yt_args, LPCWSTR url, CStringA& buf_out, const std::atomic<bool>* cancel = nullptr)
 {
 	HANDLE hStdout_r, hStdout_w;
 	HANDLE hStderr_r, hStderr_w;
@@ -50,25 +51,35 @@ static bool RunYtDlp(LPCWSTR ydl_path, LPCWSTR yt_args, LPCWSTR url, CStringA& b
 	startup_info.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
 
 	PROCESS_INFORMATION proc_info = {};
+	SetHandleInformation(hStdout_r, HANDLE_FLAG_INHERIT, 0);
+	SetHandleInformation(hStderr_r, HANDLE_FLAG_INHERIT, 0);
+	HANDLE job = CreateJobObjectW(nullptr, nullptr);
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+	limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+	if (job && !SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits))) { CloseHandle(job); job = nullptr; }
 	CStringW args;
 	args.Format(LR"("%s" %s --no-check-certificates "%s")", ydl_path, yt_args, url);
 
 	const BOOL bSuccess = CreateProcessW(
-		nullptr, args.GetBuffer(), nullptr, nullptr, TRUE, 0,
+		nullptr, args.GetBuffer(), nullptr, nullptr, TRUE, CREATE_SUSPENDED | CREATE_NO_WINDOW,
 		nullptr, nullptr, &startup_info, &proc_info
 	);
 	CloseHandle(hStdout_w);
 	CloseHandle(hStderr_w);
 
 	if (!bSuccess) {
+		if (job) CloseHandle(job);
 		CloseHandle(proc_info.hProcess);
 		CloseHandle(proc_info.hThread);
 		CloseHandle(hStdout_r);
 		CloseHandle(hStderr_r);
 		return false;
 	}
+	if (job && !AssignProcessToJobObject(job, proc_info.hProcess)) { CloseHandle(job); job = nullptr; }
+	ResumeThread(proc_info.hThread);
 
 	CStringA buf_err;
+	std::atomic<bool> excessive{false};
 
 	std::thread stdout_thread;
 	std::thread stderr_thread;
@@ -81,7 +92,8 @@ static bool RunYtDlp(LPCWSTR ydl_path, LPCWSTR yt_args, LPCWSTR url, CStringA& b
 				if (!dwBytesRead) {
 					break;
 				}
-				buf_out.Append(buffer, dwBytesRead);
+				if (buf_out.GetLength() + dwBytesRead <= 16 * 1024 * 1024) buf_out.Append(buffer, dwBytesRead);
+				else excessive = true;
 			}
 			});
 	}
@@ -94,17 +106,30 @@ static bool RunYtDlp(LPCWSTR ydl_path, LPCWSTR yt_args, LPCWSTR url, CStringA& b
 				if (!dwBytesRead) {
 					break;
 				}
-				buf_err.Append(buffer, dwBytesRead);
+				if (buf_err.GetLength() + dwBytesRead <= 65536) buf_err.Append(buffer, dwBytesRead);
 			}
 			});
 	}
 
-	WaitForSingleObject(proc_info.hProcess, INFINITE);
+	const auto started = GetTickCount64();
+	bool interrupted = false;
+	while (WaitForSingleObject(proc_info.hProcess, 50) == WAIT_TIMEOUT) {
+		if ((cancel && cancel->load()) || GetTickCount64() - started >= 30000 || excessive) {
+			interrupted = true;
+			if (job) TerminateJobObject(job, ERROR_CANCELLED);
+			else TerminateProcess(proc_info.hProcess, ERROR_CANCELLED);
+			WaitForSingleObject(proc_info.hProcess, 1000);
+			break;
+		}
+	}
+	if (job) CloseHandle(job);
 
 	if (stdout_thread.joinable()) {
+		if (WaitForSingleObject(stdout_thread.native_handle(), 1000) == WAIT_TIMEOUT) { interrupted = true; CancelSynchronousIo(stdout_thread.native_handle()); }
 		stdout_thread.join();
 	}
 	if (stderr_thread.joinable()) {
+		if (WaitForSingleObject(stderr_thread.native_handle(), 1000) == WAIT_TIMEOUT) { interrupted = true; CancelSynchronousIo(stderr_thread.native_handle()); }
 		stderr_thread.join();
 	}
 
@@ -116,6 +141,7 @@ static bool RunYtDlp(LPCWSTR ydl_path, LPCWSTR yt_args, LPCWSTR url, CStringA& b
 	CloseHandle(hStdout_r);
 	CloseHandle(hStderr_r);
 
+	if (interrupted || excessive) return false;
 	if (exitcode) {
 		if (buf_err.Find("Unsupported URL:") == -1) {
 			const CStringW ydl_fname = GetFileName(ydl_path);
@@ -1078,7 +1104,7 @@ bool YT_DLP::Parse_URL(const CStringW& url)
 	// run yt-dlp.exe
 
 	CStringA buf_out;
-	bool ok = RunYtDlp(ydl_path, L"-j -I1 --all-subs --sub-format vtt", url, buf_out);
+	bool ok = RunYtDlp(ydl_path, L"--ignore-config --simulate -j -I1 --all-subs --sub-format vtt", url, buf_out, &mCancelExtraction);
 	if (!ok) {
 		return false;
 	}
@@ -1119,6 +1145,28 @@ bool YT_DLP::Parse_URL(const CStringW& url)
 	ok = SelectStreams();
 
 	return ok;
+}
+
+UINT YT_DLP::GetDefaultVideoIndex()
+{
+	YT_DLP candidate;
+	candidate.mVideoFormats = mVideoFormats;
+	candidate.mAudioFormats = mAudioFormats;
+	candidate.mHttpVideoCount = mHttpVideoCount;
+	candidate.mDashVideoCount = mDashVideoCount;
+	candidate.SelectStreams();
+	return candidate.mIdxVideo;
+}
+
+UINT YT_DLP::GetHeightIndex(int height) const
+{
+	std::vector<Bridge::QualityFormat> formats;
+	for (UINT i = 0; i < mVideoFormats.size(); ++i) {
+		const auto& f = mVideoFormats[i];
+		formats.push_back({i, f.height, f.codec, f.fps, f.hdr, f.bitrate});
+	}
+	const auto& s = AfxGetAppSettings();
+	return Bridge::SelectHeight(formats, height, s.iYdlVcodec, s.bYdlHighFps, s.bYdlHDR, s.bYdlHighBitrate);
 }
 
 bool YT_DLP::ChangeFormats(UINT index)

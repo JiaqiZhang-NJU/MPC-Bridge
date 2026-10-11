@@ -41,6 +41,8 @@
 #include "KeyProvider.h"
 #include "PlayerYtDlp.h"
 #include "bridge/HoldGesture.h"
+#include "bridge/MediaCache.h"
+#include <mutex>
 #include "SvgHelper.h"
 #include "HistoryDlg.h"
 
@@ -297,6 +299,33 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	void CancelBridgeHold();
 	void OnBridgeHoldTimer();
 	void ShowBridgeOnlineQuality();
+	void AddBridgeQualityMenu(CMenu& root);
+	void SetupBridgeQualityMenu(CMenu& menu);
+	void SwitchBridgeQuality(UINT index, bool automatic, bool force = false);
+	bool FinishBridgeQualitySwitch(bool success);
+	void AttachBridgeCache(OpenFileData& ofd);
+	void UpdateBridgeCache();
+	void CloseBridgeSession();
+	Bridge::CacheStatus GetBridgeCacheStatus() { std::lock_guard<std::mutex> lock(m_bridgeCacheMutex); return m_bridgeCacheStatus; }
+	afx_msg void OnBridgeQualitySelected(UINT id);
+	afx_msg void OnUpdateBridgeQuality(CCmdUI* command);
+	afx_msg void OnBridgeCacheSettings();
+	std::shared_ptr<Bridge::MediaCache> m_bridgeCache;
+	std::mutex m_bridgeCacheMutex;
+	Bridge::CacheStatus m_bridgeCacheStatus;
+	std::map<UINT, UINT> m_bridgeQualityCommands;
+	bool m_bridgeQualityAutomatic = true;
+	bool m_bridgeCacheBypassSession = false;
+	struct BridgeQualitySwitch {
+		bool pending = false, internalClose = false, rollback = false, automatic = true, oldAutomatic = true;
+		UINT oldIndex = UINT_MAX, targetIndex = UINT_MAX, queuedIndex = UINT_MAX;
+		bool queuedAutomatic = false;
+		REFERENCE_TIME position = 0;
+		double rate = 1;
+		OAFilterState state = State_Running;
+		int volume = 100, subtitle = -1, audio = -1;
+		bool muted = false, subtitles = true;
+	} m_bridgeQualitySwitch;
 	Bridge::HoldGesture m_bridgeHold;
 	bool m_bridgeHoldRateActive = false;
 	double m_bridgeHoldPreviousRate = 1.0;

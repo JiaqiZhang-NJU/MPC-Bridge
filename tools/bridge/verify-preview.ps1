@@ -18,10 +18,13 @@ if ((Get-FileHash $sourceArchive -Algorithm SHA256).Hash -ne $manifest.sourceArc
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $sourceZip = [IO.Compression.ZipFile]::OpenRead($sourceArchive)
 try {
-    foreach ($required in 'src/apps/mplayerc/bridge/PlayerShortcutAdapter.cpp','src/apps/mplayerc/bridge/HoldGesture.h','src/ExtLib/BaseClasses/streams.h','src/ExtLib/rapidjson/include/rapidjson/document.h','src/ExtLib/vvdec/vvdec/CMakeLists.txt') {
+    $requiredSources = @('src/apps/mplayerc/bridge/PlayerShortcutAdapter.cpp','src/apps/mplayerc/bridge/HoldGesture.h','src/ExtLib/BaseClasses/streams.h','src/ExtLib/rapidjson/include/rapidjson/document.h','src/ExtLib/vvdec/vvdec/CMakeLists.txt')
+    if ($Version -match '^0\.2\.') { $requiredSources += @('src/apps/mplayerc/bridge/MediaCache.cpp','src/apps/mplayerc/bridge/PlayerQualityAdapter.cpp','tests/bridge/cache_integration.py') }
+    foreach ($required in $requiredSources) {
         if (!@($sourceZip.Entries | Where-Object { $_.FullName.Replace('\','/').EndsWith('/' + $required) }).Count) { throw ('Missing source: ' + $required) }
     }
     if (@($sourceZip.Entries | Where-Object { $_.FullName.Replace('\','/') -match '/(_bin|\.git)/' }).Count) { throw 'Unexpected build or Git state in source package.' }
+    if (@($sourceZip.Entries | Where-Object { $_.FullName -match 'MPC-Bridge-.*-Plan-' }).Count) { throw 'Internal development plan leaked into source package.' }
 } finally { $sourceZip.Dispose() }
 Add-Type @"
 using System;

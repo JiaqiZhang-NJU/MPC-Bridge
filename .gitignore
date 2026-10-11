@@ -8,6 +8,7 @@
 *.vspx
 *.bak
 /.vs
+__pycache__/
 /_bin
 /environments.bat
 /revision.h

@@ -31,6 +31,7 @@ Copy-Item (Join-Path $repoRoot 'distrib/Shaders11') $packageDirectory -Recurse
 Copy-Item (Join-Path $repoRoot 'bridge/profiles') $packageDirectory -Recurse
 Copy-Item (Join-Path $repoRoot 'bridge/README.md') (Join-Path $packageDirectory 'DEVELOPER-README.md')
 Copy-Item (Join-Path $repoRoot 'bridge/DEVELOPMENT.md') $packageDirectory
+Copy-Item (Join-Path $repoRoot 'bridge/CACHE-VALIDATION.md') $packageDirectory
 Copy-Item (Join-Path $repoRoot 'bridge/PREVIEW-README.txt') (Join-Path $packageDirectory 'README.txt')
 $ini = @'
 ; MPC-Bridge portable preview
@@ -42,6 +43,11 @@ YDLExePath=yt-dlp.exe
 YDLVideoCodec=H264
 YDLAudioCodec=AAC
 YDLMaxHeight=1080
+[MPC-Bridge Cache]
+Enabled=1
+ForwardSeconds=30
+BackSeconds=15
+DiskMiB=256
 '@
 $ini | Set-Content (Join-Path $packageDirectory 'MPC-Bridge.ini') -Encoding Unicode
 $launcher = @'
