@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MPC-Bridge Windows 播放器：两份字幕同时显示，方便原文与译文对照学习。下载预览版安装包、便携版及完整源码。">
+  <title>MPC-Bridge · 下载与双字幕使用说明</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fafaf8; color: #222820; font: 16px/1.75 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header, main, footer { width: min(900px, calc(100% - 40px)); margin-inline: auto; }
+    header { padding: 28px 0; font-size: 14px; }
+    a { color: #285d43; text-underline-offset: 4px; overflow-wrap: anywhere; }
+    a:hover { color: #163b29; }
+    a:focus-visible { outline: 3px solid #285d43; outline-offset: 5px; }
+    .hero { padding: 45px 0 42px; }
+    .version { color: #52634f; font-size: 14px; }
+    h1 { margin: 12px 0 18px; font-size: clamp(34px, 6vw, 54px); line-height: 1.2; letter-spacing: -.04em; }
+    .lead { max-width: 650px; font-size: 20px; }
+    p { margin: 12px 0; }
+    .muted { color: #5f665d; font-size: 14px; }
+    .downloads { padding: 26px; background: #fff; border: 1px solid #dce1d7; border-radius: 14px; }
+    h2 { font-size: 23px; margin: 0 0 16px; }
+    .primary { display: inline-block; border-radius: 7px; padding: 12px 20px; background: #285d43; color: white; text-decoration: none; font-weight: 600; }
+    .primary:hover { background: #1b4631; color: white; }
+    .links { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 20px; }
+    section { padding: 38px 0; border-bottom: 1px solid #dce1d7; }
+    li + li { margin-top: 9px; }
+    ul, ol { padding-left: 24px; margin-bottom: 0; }
+    code { font-size: .9em; overflow-wrap: anywhere; }
+    footer { padding: 28px 0; color: #5f665d; font-size: 12px; }
+    @media (max-width: 480px) { .hero { padding-top: 24px; } .downloads { padding: 20px; } .primary { width: 100%; text-align: center; } .lead { font-size: 18px; } }
+  </style>
+</head>
+<body>
+  <header><a href="/">← 返回项目首页</a></header>
+  <main>
+    <div class="hero">
+      <span class="version">0.2.0-preview.1 · Windows x64 · 2026-10-20</span>
+      <h1>MPC-Bridge</h1>
+      <p class="lead">一边看视频，一边对照两份字幕。</p>
+      <p>基于 MPC-BE 的非官方扩展。保留本地视频播放能力，增加双字幕、在线视频入口、清晰度切换及缓存预加载。</p>
+    </div>
+    <div class="downloads" aria-labelledby="download-title">
+      <h2 id="download-title">下载预览版</h2>
+      <a class="primary" href="downloads/v0.2.0-preview.1/MPC-Bridge-0.2.0-preview.1-x64-Setup.exe">下载 Windows x64 安装包</a>
+      <p class="muted">31.4 MiB · 仅为当前用户安装 · 包含在线视频解析器</p>
+      <p class="muted">安装包未签名，Windows 可能显示安全提示。请先核对来源与下方 SHA-256 校验文件。播放器窗口仍显示 MPC-BE 名称。</p>
+      <div class="links">
+        <a href="downloads/v0.2.0-preview.1/MPC-Bridge-0.2.0-preview.1-x64.zip">便携版 · 36.7 MiB</a>
+        <a href="downloads/v0.2.0-preview.1/MPC-Bridge-0.2.0-preview.1-source.zip">完整源码 · 44.3 MiB</a>
+        <a href="downloads/v0.2.0-preview.1/MPC-Bridge-0.2.0-preview.1-SHA256SUMS.txt">SHA-256 校验文件</a>
+        <a href="https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.0-preview.1">GitHub 备用下载与发布记录</a>
+      </div>
+    </div>
+    <section aria-labelledby="subtitles-title">
+      <h2 id="subtitles-title">如何开启双字幕</h2>
+      <ol>
+        <li>打开视频，选择「文件 → 双字幕对照…」。</li>
+        <li>分别选择原文和译文的本地 SRT 文件，点击「应用」。</li>
+        <li>按需要调整两路字幕的延迟、字号、颜色和显示位置。</li>
+      </ol>
+      <p>两份字幕按各自的时间显示，无需预先合并。可以同时放在底部，也可以一份在顶部、一份在底部；两路可独立隐藏，或一键交换。</p>
+      <p class="muted">需要启用播放器的内置字幕渲染器。双字幕当前支持两路本地 SRT；ASS/SSA 特效、图片字幕和内嵌字幕仍使用普通单字幕功能。</p>
+    </section>
+    <section aria-labelledby="notes-title">
+      <h2 id="notes-title">这一版的范围</h2>
+      <ul>
+        <li>已验证两路字幕、独立延迟、交换、两种布局、全屏、逐帧，以及切换清晰度与失败回退后的字幕恢复。</li>
+        <li>EVR Custom Presenter 和 MPC Video Renderer 已通过受控画面回归。完整多显示器、DPI、HDR 与 1080p/4K 性能组合仍待进一步验证。</li>
+        <li>在线视频受网络、网站及解析器变化影响；并非所有链接都能播放。当前尚不支持自动刷新过期的签名地址。</li>
+        <li>升级或卸载保留配置。字幕样式会保存，视频对应的字幕路径和延迟仅在当前会话中保留。</li>
+      </ul>
+      <p><a href="https://github.com/JiaqiZhang-NJU/MPC-Bridge/blob/v0.2.0-preview.1/bridge/DUAL-SUBTITLES.md">查看详细使用与验证说明</a></p>
+    </section>
+    <section aria-labelledby="source-title">
+      <h2 id="source-title">开源与反馈</h2>
+      <p>MPC-Bridge 基于 <a href="https://github.com/Aleksoid1978/MPC-BE">MPC-BE</a>，是独立的非官方项目。源码按 GPL 分发，包含上游及第三方组件的许可和声明。</p>
+      <p><a href="https://github.com/JiaqiZhang-NJU/MPC-Bridge">项目仓库</a> · <a href="https://github.com/JiaqiZhang-NJU/MPC-Bridge/issues">报告问题</a></p>
+      <p class="muted">本版源码提交：<code>ada31988e693b54c95619cd2b3833536464d7ddd</code></p>
+    </section>
+  </main>
+  <footer><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">苏ICP备2026068334号-1</a></footer>
+</body>
+</html>
