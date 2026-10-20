@@ -1,6 +1,6 @@
 # 下载网站
 
-公开地址：`https://mpc.jqzhang.top/`，服务器目录 `/var/www/mpc-bridge/`。页面参考成绩网站的浅色侧栏、灰色卡片和深色按钮；仅提供介绍、下载与开源说明，不收集用户数据。
+公开地址：`https://mpc.jqzhang.top/`，服务器目录 `/var/www/mpc-bridge/`。页面仅保留项目简介、三条功能、下载和许可入口；不使用口号、示意图或宣传卡片，不收集用户数据。
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/bridge/deploy-site.ps1 -PrepareOnly
