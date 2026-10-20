@@ -160,7 +160,8 @@ protected:
 
 bool CMainFrame::ApplyBridgeSubtitles(const Bridge::DualSubtitleState& requested, CString& error, bool activate) {
     const bool cn = ChineseSubUI();
-    if (!m_pCAP || m_pDVS || GetPlaybackMode() != PM_FILE || m_eMediaLoadState != MLS_LOADED) {
+    if (!m_pCAP || m_pDVS || !AfxGetAppSettings().IsISRAutoLoadEnabled()
+        || GetPlaybackMode() != PM_FILE || m_eMediaLoadState != MLS_LOADED) {
         error = cn ? L"请先打开视频，并在字幕设置中选择内置字幕渲染器。" : L"Open a video using the internal subtitle renderer first."; return false;
     }
     auto next = requested;
@@ -258,7 +259,8 @@ void CMainFrame::AttachBridgeSubtitles(ISubStream* selected) {
 
 void CMainFrame::OnBridgeDualSubtitles() {
     if (!CanShowDialog()) return;
-    if (!m_pCAP || m_pDVS || GetPlaybackMode() != PM_FILE || m_eMediaLoadState != MLS_LOADED || m_bAudioOnly) {
+    if (!m_pCAP || m_pDVS || !AfxGetAppSettings().IsISRAutoLoadEnabled()
+        || GetPlaybackMode() != PM_FILE || m_eMediaLoadState != MLS_LOADED || m_bAudioOnly) {
         AfxMessageBox(ChineseSubUI() ? L"请先播放视频，并在设置 → 字幕中选择内置字幕渲染器。" : L"Play a video and select the internal subtitle renderer in Options > Subtitles.", MB_ICONINFORMATION); return;
     }
     CancelBridgeHold(); CancelLeftLongPressSpeed(true);

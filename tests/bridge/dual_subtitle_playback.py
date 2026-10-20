@@ -127,6 +127,28 @@ def run(renderer):
         except subprocess.TimeoutExpired:process.kill();process.wait();raise AssertionError('player close hung')
     assert process.returncode==0,process.returncode
 
+def run_disabled():
+    folder=ROOT/'_bin/bridge/dual-qa'/f'disabled-{time.time_ns()}';folder.mkdir(parents=True)
+    movie=folder/'fixture.avi';video(movie)
+    player=folder/'disabled-player.exe';shutil.copy2(ROOT/'_bin/mpc-be_x64/mpc-be64.exe',player)
+    with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+    player.with_suffix('.ini').write_text(f'[Audio]\nMute=1\n[Video]\nVideoRenderer=3\n[Settings]\nSubtitleRenderer=0\n[WebServer]\nEnableWebServer=1\nLocalhostOnly=1\nPort={port}\n',encoding='utf-16')
+    process=subprocess.Popen([str(player),str(movie),'/new','/minimized']);hwnd=None
+    try:
+        wait(port,lambda s:int(s.get('position','0'))>500);hwnd=window(process.pid);assert hwnd
+        user.PostMessageW(hwnd,0x111,50005,0);time.sleep(.8)
+        popup=user.GetLastActivePopup(hwnd)
+        assert popup and popup!=hwnd and not user.GetDlgItem(popup,600),'unsupported renderer entered dual mode'
+        user.PostMessageW(popup,0x10,0,0);time.sleep(.2)
+        print('PASS: disabled internal subtitle renderer gives an explanatory message and cannot enter dual mode',flush=True)
+    finally:
+        if hwnd:user.PostMessageW(hwnd,0x111,816,0)
+        try:process.wait(10)
+        except subprocess.TimeoutExpired:process.kill();process.wait();raise AssertionError('disabled renderer exit hung')
+    assert process.returncode==0
+
 if __name__=='__main__':
     import sys
-    for vr in ([int(sys.argv[1])] if len(sys.argv)>1 and sys.argv[1].isdigit() else [3,5]):run(vr)
+    if '--disabled' in sys.argv:run_disabled()
+    else:
+        for vr in ([int(sys.argv[1])] if len(sys.argv)>1 and sys.argv[1].isdigit() else [3,5]):run(vr)
