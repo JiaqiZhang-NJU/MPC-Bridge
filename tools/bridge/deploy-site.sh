@@ -14,7 +14,7 @@ for path in "$root" "$root/downloads" "$root/downloads/$version" "$root/legal" "
 [[ -f $homepage && ! -L $homepage ]]
 cd "$stage"
 sha256sum --strict -c upload.sha256
-sha256sum --strict -c MPC-Bridge-0.2.0-preview.1-SHA256SUMS.txt
+sed 's/\r$//' MPC-Bridge-0.2.0-preview.1-SHA256SUMS.txt | sha256sum --strict -c -
 nginx -t
 curl -fsS --max-time 20 https://credits.jqzhang.top/health >/dev/null
 getent ahostsv4 mpc.jqzhang.top | awk '{print $1}' | grep -qx '117.72.210.148'
