@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)][string]$Parser,
     [string]$Version = '0.2.0-preview.1'
 )

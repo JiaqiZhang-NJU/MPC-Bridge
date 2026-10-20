@@ -1,4 +1,4 @@
-param([string]$Compiler = 'g++')
+﻿param([string]$Compiler = 'g++')
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $testOutput = Join-Path $repoRoot '_bin/bridge'
