@@ -1,6 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClInclude Include="bridge\DualSubtitleModel.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\DualSubtitleProvider.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="bridge\MediaCache.h"><Filter>Online</Filter></ClInclude>
     <ClInclude Include="bridge\MediaCacheModel.h"><Filter>Online</Filter></ClInclude>
     <ClInclude Include="bridge\QualityModel.h"><Filter>Online</Filter></ClInclude>
@@ -69,6 +71,8 @@
     </ClCompile>
     <ClCompile Include="bridge\MediaCache.cpp"><Filter>Online</Filter></ClCompile>
     <ClCompile Include="bridge\MediaTimeIndex.cpp"><Filter>Online</Filter></ClCompile>
+    <ClCompile Include="bridge\DualSubtitleProvider.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="bridge\PlayerSubtitleAdapter.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="bridge\PlayerQualityAdapter.cpp"><Filter>Online</Filter></ClCompile>
     <ClCompile Include="bridge\CacheSettingsDialog.cpp"><Filter>Dialogs</Filter></ClCompile>
     <ClCompile Include="bridge\OnlineVideoDialog.cpp">

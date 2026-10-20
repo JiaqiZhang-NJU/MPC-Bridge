@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.0-preview.4',
+    [string]$Version = '0.2.0-preview.1',
     [string]$Installer,
     [string]$PackageDirectory
 )

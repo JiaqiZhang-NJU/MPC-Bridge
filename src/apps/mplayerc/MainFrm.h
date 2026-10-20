@@ -42,6 +42,7 @@
 #include "PlayerYtDlp.h"
 #include "bridge/HoldGesture.h"
 #include "bridge/MediaCache.h"
+#include "bridge/DualSubtitleProvider.h"
 #include <mutex>
 #include "SvgHelper.h"
 #include "HistoryDlg.h"
@@ -229,6 +230,18 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	std::list<ISubStream*> m_ExternalSubstreams;
 	int m_iSubtitleSel; // if (m_iSubtitleSel & 0x80000000) - disabled
 	CComPtr<ISubStream> m_pCurrentSubStream;
+	Bridge::DualSubtitleState m_bridgeSubtitles;
+	std::shared_ptr<CSimpleTextSubtitle> m_bridgeSubtitleSources[2];
+	CComPtr<CDualSubtitleProvider> m_bridgeSubtitleProvider;
+	bool m_bridgeSubtitleActive = false;
+	uint64_t m_bridgeSubtitleFileTokens[2] = {};
+	bool ApplyBridgeSubtitles(const Bridge::DualSubtitleState& requested, CString& error, bool activate = true);
+	void AttachBridgeSubtitles(ISubStream* selected);
+	void CloseBridgeSubtitles();
+	void RefreshBridgeSubtitleFiles();
+	int GetBridgePrimarySubtitleDelay() const { return m_bridgeSubtitleActive ? m_bridgeSubtitles.slots[0].delayMs : m_pCAP ? m_pCAP->GetSubtitleDelay() : 0; }
+	afx_msg void OnBridgeDualSubtitles();
+	afx_msg void OnBridgeSubtitleRefresh();
 
 	// windowing
 	int m_iVideoSize;
@@ -325,6 +338,7 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 		OAFilterState state = State_Running;
 		int volume = 100, subtitle = -1, audio = -1;
 		bool muted = false, subtitles = true;
+		Bridge::DualSubtitleState dualSubtitles;
 	} m_bridgeQualitySwitch;
 	Bridge::HoldGesture m_bridgeHold;
 	bool m_bridgeHoldRateActive = false;

@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Compiler,
-    [string]$Version = '0.1.0-preview.4',
-    [string]$FileVersion = '0.1.0.4'
+    [string]$Version = '0.2.0-preview.1',
+    [string]$FileVersion = '0.2.0.1'
 )
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$' -or $FileVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw 'Invalid version.' }

@@ -11,6 +11,7 @@ import socket
 import subprocess
 import threading
 import time
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from cache_integration import ROOT
 from cache_native_playback import MEDIA, state
@@ -116,6 +117,22 @@ def main():
     try:
         initial = wait(port, lambda s: int(s['position']) > 1500 and s['onlineheight'] == '1080')
         hwnd = window(process.pid); assert hwnd
+        if '--dual' in sys.argv:
+            from dual_subtitle_playback import dialog, edit, click
+            primary=folder/'primary.srt'; secondary=folder/'secondary.srt'
+            primary.write_text('1\n00:00:00,000 --> 00:09:00,000\nQUALITY PRIMARY\n',encoding='utf-8')
+            secondary.write_text('1\n00:00:00,000 --> 00:09:00,000\nQUALITY SECONDARY\n',encoding='utf-8')
+            dlg=dialog(hwnd); edit(dlg,600,primary); edit(dlg,601,secondary)
+            edit(dlg,606,500); edit(dlg,607,-500); click(dlg,614); click(dlg,2)
+            def verify_dual():
+                dlg=dialog(hwnd)
+                for control,expected in [(600,str(primary)),(601,str(secondary)),(606,'500'),(607,'-500')]:
+                    data=ctypes.create_unicode_buffer(32768);result=ctypes.c_size_t()
+                    assert user.SendMessageTimeoutW(user.GetDlgItem(dlg,control),0x000d,len(data),ctypes.addressof(data),2,3000,ctypes.byref(result))
+                    assert data.value==expected,(control,data.value,expected)
+                click(dlg,2)
+                print('PASS: primary/secondary paths and +500/-500 ms delay snapshot restored',flush=True)
+            verify_dual()
         menu = quality_menu(hwnd); count = user.GetMenuItemCount(menu)
         assert user.GetMenuState(menu, 50200, 0) & 8
         message(hwnd, 0x117, menu); assert user.GetMenuItemCount(menu) == count
@@ -126,6 +143,7 @@ def main():
         old_position = int(paused['position'])
         user.PostMessageW(hwnd, 0x111, 50201, 0)
         switched = wait(port, lambda s: s['onlineheight'] == '720' and s['state'] == '1' and abs(float(s['playbackrate'])-1.5)<.01)
+        if '--dual' in sys.argv: verify_dual()
         assert abs(int(switched['position']) - old_position) < 1500
         assert switched['volumelevel'] == paused['volumelevel'] and switched['muted'] == paused['muted']
         wait(port, lambda s: float(s['cacheforward']) >= 45)
@@ -151,6 +169,7 @@ def main():
         time.sleep(1)
         wait(port, lambda s: s['onlineheight']=='720' and s['state']=='1' and abs(float(s['playbackrate'])-1.5)<.01)
         # Runtime settings are real controls and persist after normal exit.
+        if '--dual' in sys.argv: verify_dual()
         for _ in range(3):
             user.PostMessageW(hwnd,0x100,ord('R'),1); user.PostMessageW(hwnd,0x101,ord('R'),-1073741823)
             time.sleep(.15)

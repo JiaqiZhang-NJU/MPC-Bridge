@@ -1,4 +1,4 @@
-﻿param([string]$Version = "0.1.0-preview.4")
+param([string]$Version = "0.2.0-preview.1")
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid package version.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -20,6 +20,7 @@ $sourceZip = [IO.Compression.ZipFile]::OpenRead($sourceArchive)
 try {
     $requiredSources = @('src/apps/mplayerc/bridge/PlayerShortcutAdapter.cpp','src/apps/mplayerc/bridge/HoldGesture.h','src/ExtLib/BaseClasses/streams.h','src/ExtLib/rapidjson/include/rapidjson/document.h','src/ExtLib/vvdec/vvdec/CMakeLists.txt')
     if ($Version -match '^0\.2\.') { $requiredSources += @('src/apps/mplayerc/bridge/MediaCache.cpp','src/apps/mplayerc/bridge/PlayerQualityAdapter.cpp','tests/bridge/cache_integration.py') }
+    if ($Version -match '^0\.2\.' -and $Version -notmatch '-dev\.') { $requiredSources += @('src/apps/mplayerc/bridge/DualSubtitleProvider.cpp','tests/bridge/dual_subtitle_playback.py') }
     foreach ($required in $requiredSources) {
         if (!@($sourceZip.Entries | Where-Object { $_.FullName.Replace('\','/').EndsWith('/' + $required) }).Count) { throw ('Missing source: ' + $required) }
     }

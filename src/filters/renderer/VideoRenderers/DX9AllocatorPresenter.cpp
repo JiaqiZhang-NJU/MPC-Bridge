@@ -2209,6 +2209,11 @@ STDMETHODIMP CDX9AllocatorPresenter::GetDIB(BYTE* lpDib, DWORD* size)
 
 	HRESULT hr;
 	CComPtr<IDirect3DSurface9> pRGB32Surface;
+	// A minimized player may advance its clock before the first surface exists.
+	if (!m_pDevice9Ex || m_iCurSurface >= std::size(m_pVideoTextures)
+		|| !m_pVideoTextures[m_iCurSurface] || (m_pPSCorrection && !m_pFrameTextures[0])) {
+		return E_ABORT;
+	}
 	if (FAILED(hr = m_pDevice9Ex->CreateRenderTarget(framesize.cx, framesize.cy, D3DFMT_X8R8G8B8, D3DMULTISAMPLE_NONE, 0, TRUE, &pRGB32Surface, nullptr))) {
 		return hr;
 	}

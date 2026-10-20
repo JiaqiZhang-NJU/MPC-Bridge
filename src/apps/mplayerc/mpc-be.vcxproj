@@ -97,6 +97,8 @@
     </ClCompile>
     <ClCompile Include="bridge\MediaCache.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="bridge\MediaTimeIndex.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="bridge\DualSubtitleProvider.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="bridge\PlayerSubtitleAdapter.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\PlayerQualityAdapter.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\CacheSettingsDialog.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\OnlineVideoDialog.cpp">
@@ -252,6 +254,8 @@
     <ClInclude Include="AppSettings.h" />
     <ClInclude Include="bridge\ShortcutProfile.h" />
     <ClInclude Include="bridge\OnlineUrl.h" />
+    <ClInclude Include="bridge\DualSubtitleModel.h" />
+    <ClInclude Include="bridge\DualSubtitleProvider.h" />
     <ClInclude Include="bridge\MediaCache.h" />
     <ClInclude Include="bridge\MediaCacheModel.h" />
     <ClInclude Include="bridge\QualityModel.h" />

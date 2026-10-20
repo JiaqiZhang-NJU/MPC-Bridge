@@ -95,6 +95,7 @@ void CMainFrame::SwitchBridgeQuality(UINT index, bool automatic, bool force)
     change.state = GetMediaState(); change.volume = GetVolume(); change.muted = IsMuted();
     change.subtitle = GetSubtitleTrackIdx(); change.audio = GetAudioTrackIdx();
     change.subtitles = AfxGetAppSettings().fEnableSubtitles;
+    change.dualSubtitles = m_bridgeSubtitles;
     change.pending = true;
     change.internalClose = true; m_bYoutubeOpened = true;
     CloseMedia(); change.internalClose = false;
@@ -124,6 +125,15 @@ bool CMainFrame::FinishBridgeQualitySwitch(bool success)
         SetAudioTrackIdx(saved.audio); SetSubtitleTrackIdx(saved.subtitle);
         AfxGetAppSettings().fEnableSubtitles = saved.subtitles;
         UpdateSubtitle();
+        if (saved.dualSubtitles.enabled) {
+            CString error;
+            if (!ApplyBridgeSubtitles(saved.dualSubtitles, error)) {
+                m_bridgeSubtitles.enabled = false; UpdateSubtitle();
+                m_OSD.DisplayMessage(OSD_TOPLEFT, error, 5000);
+            }
+            AfxGetAppSettings().fEnableSubtitles = saved.subtitles;
+            if (!saved.subtitles) { m_nSelSub2 = m_iSubtitleSel; m_iSubtitleSel = -1; UpdateSubtitle(); }
+        }
         if (saved.state == State_Paused) OnPlayPause();
         else if (saved.state == State_Stopped) OnPlayStop();
         if (saved.rollback) m_OSD.DisplayMessage(OSD_TOPLEFT, ChineseUI() ? L"切换失败，已恢复原清晰度。" : L"Switch failed; previous quality restored.", 5000);

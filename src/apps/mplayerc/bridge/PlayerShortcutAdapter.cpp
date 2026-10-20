@@ -18,6 +18,10 @@ constexpr const wchar_t* ProfileIds[] = {L"native", L"bilibili", L"youtube", L"c
 
 void CMainFrame::AddBridgeProfileMenu(CMenu& menu)
 {
+	if (menu.GetMenuState(ID_FILE_LOAD_SUBTITLE, MF_BYCOMMAND) != UINT(-1)
+		&& menu.GetMenuState(ID_BRIDGE_DUAL_SUBTITLES, MF_BYCOMMAND) == UINT(-1)) {
+		menu.AppendMenuW(MF_STRING, ID_BRIDGE_DUAL_SUBTITLES, ChineseUI() ? L"双字幕对照…" : L"Dual subtitles...");
+	}
 	if (menu.GetMenuState(ID_FILE_OPENFILEURL, MF_BYCOMMAND) != UINT(-1)
 		&& menu.GetMenuState(ID_BRIDGE_OPEN_ONLINE, MF_BYCOMMAND) == UINT(-1)) {
 		const int count = menu.GetMenuItemCount();

@@ -503,6 +503,8 @@ public:
 	void SetName(const CString& name);
 
 	const bool GetText(const REFERENCE_TIME rt, const double fps, CString& text);
+	// Unclipped size for plain-text learning lanes, including simultaneous cues.
+	CSize MeasurePlainText(REFERENCE_TIME rt, double fps, CSize canvas);
 
 public:
 	bool Init(CSize size, const CRect& vidrect); // will call Deinit()

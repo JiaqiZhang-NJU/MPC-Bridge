@@ -9,12 +9,14 @@
 先提交源文件，再生成便携版和含子模块的源码快照：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools/bridge/package-preview.ps1 -Parser C:\path\to\yt-dlp.exe -Version 0.1.0-preview.4
-powershell -ExecutionPolicy Bypass -File tools/bridge/verify-preview.ps1 -Version 0.1.0-preview.4
+powershell -ExecutionPolicy Bypass -File tools/bridge/package-preview.ps1 -Parser C:\path\to\yt-dlp.exe -Version 0.2.0-preview.1
+powershell -ExecutionPolicy Bypass -File tools/bridge/verify-preview.ps1 -Version 0.2.0-preview.1
 powershell -ExecutionPolicy Bypass -File tools/bridge/package-installer.ps1 -Compiler 'C:\path\to\ISCC.exe'
 powershell -ExecutionPolicy Bypass -File tools/bridge/verify-installer.ps1
 ```
 
 产物位于 `_bin/bridge/packages`：安装 EXE、便携 ZIP、完整源码 ZIP、三者的 SHA-256 清单。编译脚本拒绝源码版本不一致、被修改的包文件和已有同名安装包。发布前核验远程提交、Release 标签及上传资产的哈希。
+
+本机已有正式安装时，可运行 `verify-installer-isolated.ps1 -Compiler 'C:/path/to/ISCC.exe'`：使用相同发布负载及安装/卸载代码，只替换测试 AppId 和快捷方式目录后编译验证。此方法不替换现有安装；它验证隔离身份下的安装、升级、卸载及配置保留，不表示本轮执行过正式身份的原地升级。
 
 静默安装可用 `Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`，测试可加 `/DIR="完整路径" /LOG="完整日志路径"`。安装验证脚本在仓库内创建新目录，检查所有发布文件、快捷方式、卸载登记、原生播放器菜单与退出、重复安装保留配置、卸载保留配置及移除入口。若检测到同身份的已安装版本或同名快捷方式，拒绝测试，防止覆盖现有安装。

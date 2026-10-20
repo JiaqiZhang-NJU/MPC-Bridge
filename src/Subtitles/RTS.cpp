@@ -29,6 +29,9 @@
 // WARNING: this isn't very thread safe, use only one RTS a time. We should use TLS in future.
 static HDC g_hDC;
 static int g_hDC_refcnt = 0;
+// Independent learning lanes still share this GDI DC and font selection.
+// Acquire this before each instance's render mutex.
+static std::recursive_mutex g_textRenderMutex;
 
 static long revcolor(long c)
 {
@@ -1587,6 +1590,7 @@ CRenderedTextSubtitle::CRenderedTextSubtitle(CCritSec* pLock)
 	, m_overridePlacement(50, 90)
 	, m_webvtt_allow_clear(false)
 {
+	std::lock_guard<std::recursive_mutex> sharedDC(g_textRenderMutex);
 	m_size = CSize(0, 0);
 
 	if (g_hDC_refcnt == 0) {
@@ -1658,6 +1662,7 @@ CRenderedTextSubtitle::CRenderedTextSubtitle(CCritSec* pLock)
 
 CRenderedTextSubtitle::~CRenderedTextSubtitle()
 {
+	std::lock_guard<std::recursive_mutex> sharedDC(g_textRenderMutex);
 	Deinit();
 
 	g_hDC_refcnt--;
@@ -2900,6 +2905,28 @@ void CRenderedTextSubtitle::SetName(const CString& name)
 	m_bForced = (CString(name).MakeLower().Find(L"forced") >= 0);
 }
 
+CSize CRenderedTextSubtitle::MeasurePlainText(REFERENCE_TIME rt, double fps, CSize canvas)
+{
+	std::lock_guard<std::recursive_mutex> sharedDC(g_textRenderMutex);
+	std::unique_lock<std::mutex> lock(m_mutexRender);
+	const CRect rect(0, 0, canvas.cx, canvas.cy);
+	if (m_size != CSize(canvas.cx * 8, canvas.cy * 8) || m_vidrect != CRect(0, 0, canvas.cx * 8, canvas.cy * 8)) {
+		Init(canvas, rect);
+	}
+	const auto segment = SearchSubs(static_cast<int>(rt / 10000), fps);
+	CSize required(0, 0);
+	if (segment) for (size_t index = 0; index < segment->subs.GetCount(); ++index) {
+		const int entry = segment->subs[index];
+		m_time = static_cast<int>(rt / 10000) - TranslateStart(entry, fps);
+		m_delay = TranslateEnd(entry, fps) - TranslateStart(entry, fps);
+		if (const auto sub = GetSubtitle(entry)) {
+			required.cx = std::max<LONG>(required.cx, (sub->m_rect.Width() + 7) / 8 + 8);
+			required.cy += (sub->m_rect.Height() + sub->m_topborder + sub->m_bottomborder + 7) / 8 + 8;
+		}
+	}
+	return required;
+}
+
 struct LSub {
 	int idx, layer, readorder;
 
@@ -2910,6 +2937,7 @@ struct LSub {
 
 const bool CRenderedTextSubtitle::GetText(const REFERENCE_TIME rt, const double fps, CString& text)
 {
+	std::lock_guard<std::recursive_mutex> sharedDC(g_textRenderMutex);
 	std::unique_lock<std::mutex> lock(m_mutexRender);
 
 	text.Empty();
@@ -3035,6 +3063,7 @@ STDMETHODIMP_(REFERENCE_TIME) CRenderedTextSubtitle::GetStop(POSITION pos, doubl
 
 STDMETHODIMP_(bool) CRenderedTextSubtitle::IsAnimated(POSITION pos)
 {
+	std::lock_guard<std::recursive_mutex> sharedDC(g_textRenderMutex);
 	int iSegment = (int)(INT_PTR)pos - 1;
 
 	const STSSegment* stss = GetSegment(iSegment);
@@ -3052,6 +3081,7 @@ STDMETHODIMP_(bool) CRenderedTextSubtitle::IsAnimated(POSITION pos)
 
 STDMETHODIMP CRenderedTextSubtitle::Render(SubPicDesc& spd, REFERENCE_TIME rt, double fps, RECT& bbox)
 {
+	std::lock_guard<std::recursive_mutex> sharedDC(g_textRenderMutex);
 	std::unique_lock<std::mutex> lock(m_mutexRender);
 
 	CRect bbox2;

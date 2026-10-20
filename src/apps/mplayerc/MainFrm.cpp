@@ -256,6 +256,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_FILE_OPENFILEURL, OnFileOpenMedia)
 	ON_COMMAND(ID_BRIDGE_OPEN_ONLINE, OnBridgeOpenOnline)
 	ON_COMMAND(ID_BRIDGE_CACHE_SETTINGS, OnBridgeCacheSettings)
+	ON_COMMAND(ID_BRIDGE_DUAL_SUBTITLES, OnBridgeDualSubtitles)
+	ON_COMMAND(ID_BRIDGE_SUBTITLE_REFRESH, OnBridgeSubtitleRefresh)
 	ON_COMMAND_RANGE(ID_BRIDGE_QUALITY_DEFAULT, ID_BRIDGE_QUALITY_DEFAULT, OnBridgeQualitySelected)
 	ON_COMMAND_RANGE(ID_BRIDGE_QUALITY_START, ID_BRIDGE_QUALITY_END, OnBridgeQualitySelected)
 	ON_UPDATE_COMMAND_UI(ID_BRIDGE_QUALITY_DEFAULT, OnUpdateBridgeQuality)
@@ -2572,7 +2574,7 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 
 				switch (GetPlaybackMode()) {
 					case PM_FILE:
-						g_bExternalSubtitleTime = false;
+						g_bExternalSubtitleTime = !m_bridgeSubtitles.slots[0].path.empty() && GetMediaState() != State_Running;
 
 						m_pMS->GetDuration(&rtDur);
 						m_pMS->GetCurrentPosition(&rtNow);
@@ -2653,6 +2655,18 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 				if (m_pCAP) {
 					if (g_bExternalSubtitleTime) {
 						m_pCAP->SetTime(rtNow);
+						if (!m_bridgeSubtitles.slots[0].path.empty()) {
+							static REFERENCE_TIME lastTime = -1;
+							static ISubPicProvider* lastProvider = nullptr;
+							static int refreshFrames = 0;
+							static bool lastEnabled = true;
+							auto provider = m_bridgeSubtitleActive ? m_bridgeSubtitleProvider.p : nullptr;
+							// MPCVR can use six HDR swap-chain buffers. Refresh enough
+							// frames to retire every cached image after a paused edit.
+							if (lastTime != rtNow || lastProvider != provider || lastEnabled != s.fEnableSubtitles) refreshFrames = 8;
+							lastTime = rtNow; lastProvider = provider; lastEnabled = s.fEnableSubtitles;
+							if (refreshFrames > 0) { --refreshFrames; m_pCAP->Paint(false); }
+						}
 					}
 					m_wndSubresyncBar.SetTime(rtNow);
 					m_wndSubresyncBar.SetFPS(m_pCAP->GetFPS());
@@ -2665,6 +2679,7 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 			break;
 		case TIMER_STREAMPOSPOLLER2:
 			UpdateBridgeCache();
+			RefreshBridgeSubtitleFiles();
 			if (m_eMediaLoadState == MLS_LOADED) {
 				auto& s = AfxGetAppSettings();
 				if (s.nCS < CS_STATUSBAR) {
@@ -6520,7 +6535,7 @@ HRESULT CMainFrame::RenderCurrentSubtitles(BYTE* pData)
 
 	const CAppSettings& s = AfxGetAppSettings();
 	if (s.fEnableSubtitles && s.bSnapShotSubtitles) {
-		if (CComQIPtr<ISubPicProvider> pSubPicProvider = m_pCurrentSubStream.p) {
+		if (CComQIPtr<ISubPicProvider> pSubPicProvider = m_bridgeSubtitleActive ? static_cast<ISubStream*>(m_bridgeSubtitleProvider.p) : m_pCurrentSubStream.p) {
 			const PBITMAPINFOHEADER bih = (PBITMAPINFOHEADER)pData;
 			const int width  = bih->biWidth;
 			const int height = bih->biHeight;
@@ -7090,7 +7105,7 @@ void CMainFrame::OnFileSaveSubtitle()
 				s.bSubSaveExternalStyleFile = !!fd.GetSaveExternalStyleFile();
 
 				CAutoLock cAutoLock(&m_csSubLock);
-				pRTS->SaveAs(fd.GetPathName(), types[fd.m_ofn.nFilterIndex - 1], m_pCAP->GetFPS(), m_pCAP->GetSubtitleDelay(), fd.GetEncoding(), s.bSubSaveExternalStyleFile);
+				pRTS->SaveAs(fd.GetPathName(), types[fd.m_ofn.nFilterIndex - 1], m_pCAP->GetFPS(), GetBridgePrimarySubtitleDelay(), fd.GetEncoding(), s.bSubSaveExternalStyleFile);
 			}
 
 			return;
@@ -8991,7 +9006,11 @@ void CMainFrame::SetSubtitleDelay(int delay_ms)
 	}
 
 	if (m_pCAP) {
-		m_pCAP->SetSubtitleDelay(delay_ms);
+		if (m_bridgeSubtitleActive) {
+			m_bridgeSubtitles.slots[0].delayMs = std::clamp(delay_ms, -Bridge::SubtitleDelayLimit, Bridge::SubtitleDelayLimit);
+			m_bridgeSubtitleProvider.Release();
+			AttachBridgeSubtitles(m_pCurrentSubStream);
+		} else m_pCAP->SetSubtitleDelay(delay_ms);
 	}
 
 	RepaintVideo();
@@ -10796,7 +10815,7 @@ void CMainFrame::OnSubCopyClipboard()
 		if (auto pRTS = dynamic_cast<CRenderedTextSubtitle*>(m_pCurrentSubStream.p)) {
 			REFERENCE_TIME rtNow = 0;
 			m_pMS->GetCurrentPosition(&rtNow);
-			rtNow -= 10000i64 * m_pCAP->GetSubtitleDelay();
+			rtNow -= 10000i64 * GetBridgePrimarySubtitleDelay();
 
 			CString text;
 			if (pRTS->GetText(rtNow, m_pCAP->GetFPS(), text)) {
@@ -15658,6 +15677,8 @@ void CMainFrame::SetupSubtilesAMStreamSubMenu(CMenu& submenu, UINT id)
 		}
 
 		submenu.AppendMenuW(MF_BYCOMMAND | MF_STRING | (m_pSubStreams.size() ? MF_ENABLED : MF_DISABLED), ID_SUBTITLES_ENABLE, ResStr(IDS_SUBTITLES_ENABLE));
+		submenu.AppendMenuW(MF_STRING, ID_BRIDGE_DUAL_SUBTITLES,
+			AfxGetAppSettings().iCurrentLanguage == CMPlayerCApp::GetLanguageIndex(ID_LANGUAGE_CHINESE_SIMPLIFIED) ? L"\u53cc\u5b57\u5e55\u5bf9\u7167\u2026" : L"Dual subtitles...");
 		submenu.AppendMenuW(MF_SEPARATOR);
 
 		bool sep = false;
@@ -16704,7 +16725,10 @@ void CMainFrame::UpdateSubtitle(bool fDisplayMessage, bool fApplyDefStyle)
 		m_OSD.DisplayMessage(OSD_TOPLEFT, ResStr(IDS_SUBTITLE_STREAM_OFF));
 	}
 
-	m_pCAP->SetSubPicProvider(nullptr);
+	if (m_bridgeSubtitles.enabled && m_bridgeSubtitleProvider) {
+		m_bridgeSubtitleProvider.p->hidden = true;
+		m_pCAP->SetSubPicProvider(m_bridgeSubtitleProvider);
+	} else m_pCAP->SetSubPicProvider(nullptr);
 }
 
 void CMainFrame::SetSubtitle(ISubStream* pSubStream, int iSubtitleSel/* = -1*/, bool fApplyDefStyle/* = false*/)
@@ -16841,6 +16865,7 @@ void CMainFrame::SetSubtitle(ISubStream* pSubStream, int iSubtitleSel/* = -1*/, 
 
 		g_bExternalSubtitle = (std::find(m_ExternalSubstreams.cbegin(), m_ExternalSubstreams.cend(), pSubStream) != m_ExternalSubstreams.cend());
 		m_pCAP->SetSubPicProvider(CComQIPtr<ISubPicProvider>(pSubStream));
+		AttachBridgeSubtitles(pSubStream);
 		if (s.fUseSybresync) {
 			CAutoLock cAutoLock(&m_csSubLock);
 			m_wndSubresyncBar.SetSubtitle(pSubStream, m_pCAP->GetFPS());
@@ -16861,6 +16886,12 @@ void CMainFrame::ReplaceSubtitle(ISubStream* pSubStreamOld, ISubStream* pSubStre
 
 void CMainFrame::InvalidateSubtitle(DWORD_PTR nSubtitleId, REFERENCE_TIME rtInvalidate)
 {
+	if (m_bridgeSubtitles.enabled && m_bridgeSubtitleActive
+		&& (nSubtitleId == -1 || nSubtitleId == (DWORD_PTR)m_pCurrentSubStream.p)) {
+		// Editors may notify while holding m_csSubLock. Never replace a queue
+		// provider under that lock; defer until the editor has released it.
+		PostMessageW(WM_COMMAND, ID_BRIDGE_SUBTITLE_REFRESH);
+	}
 	if (m_pCAP) {
 		if (nSubtitleId == -1 || nSubtitleId == (DWORD_PTR)m_pCurrentSubStream.p) {
 			m_pCAP->Invalidate(rtInvalidate);
@@ -16870,6 +16901,11 @@ void CMainFrame::InvalidateSubtitle(DWORD_PTR nSubtitleId, REFERENCE_TIME rtInva
 
 void CMainFrame::ReloadSubtitle()
 {
+	if (m_bridgeSubtitles.enabled) {
+		CString error;
+		if (!ApplyBridgeSubtitles(m_bridgeSubtitles, error, false)) m_OSD.DisplayMessage(OSD_TOPLEFT, error, 5000);
+		return;
+	}
 	{
 		CAutoLock cAutoLock(&m_csSubLock);
 
@@ -17184,6 +17220,10 @@ void CMainFrame::SeekTo(REFERENCE_TIME rtPos, bool bShowOSD/* = true*/)
 	OnTimer(TIMER_STREAMPOSPOLLER);
 	OnTimer(TIMER_STREAMPOSPOLLER2);
 	if (fs == State_Paused) {
+		if (m_bridgeSubtitleActive && m_pCAP) {
+			m_pCAP->Invalidate();
+			RepaintVideo();
+		}
 		OnTimer(TIMER_STATS);
 	}
 
@@ -17995,6 +18035,7 @@ bool CMainFrame::DisplayChange()
 void CMainFrame::CloseMedia(BOOL bNextIsOpened/* = FALSE*/)
 {
 	CancelBridgeHold();
+	CloseBridgeSubtitles();
 	CloseBridgeSession();
 	m_YtDlp.CancelExtraction();
 	if (m_eMediaLoadState == MLS_CLOSING || m_eMediaLoadState == MLS_CLOSED) {
@@ -18423,7 +18464,7 @@ afx_msg void CMainFrame::OnSubtitleDelay(UINT nID)
 			return;
 		}
 
-		int delay = m_pCAP->GetSubtitleDelay();
+		int delay = GetBridgePrimarySubtitleDelay();
 
 		if (nID == ID_SUB_DELAY_DEC) {
 			delay -= AfxGetAppSettings().nSubDelayInterval;
