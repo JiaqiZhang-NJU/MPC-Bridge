@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace Bridge {
 constexpr int SubtitleDelayLimit = 600000;
 struct SubtitleSlot {
     std::wstring path;
+    int embeddedTrack = -1; // -1: external file; otherwise a track in this media
+    std::wstring embeddedKey; // name/type identity, checked again after reopening
     bool visible = true;
     int delayMs = 0;
     int fontSize = 20;
@@ -20,8 +23,18 @@ struct DualSubtitleState {
     DualSubtitleState() { slots[1].color = 0x0080ffff; }
 };
 inline bool ValidSubtitleSlot(const SubtitleSlot& slot) {
-    return slot.delayMs >= -SubtitleDelayLimit && slot.delayMs <= SubtitleDelayLimit
+    return slot.embeddedTrack >= -1 && slot.delayMs >= -SubtitleDelayLimit && slot.delayMs <= SubtitleDelayLimit
         && slot.fontSize >= 8 && slot.fontSize <= 48 && slot.color <= 0xffffff;
+}
+inline int ResolveEmbeddedTrack(const SubtitleSlot& slot, const std::vector<std::wstring>& keys) {
+    if (slot.embeddedTrack < 0 || slot.embeddedKey.empty()) return -1;
+    if (size_t(slot.embeddedTrack) < keys.size() && keys[slot.embeddedTrack] == slot.embeddedKey) return slot.embeddedTrack;
+    int match = -1;
+    for (size_t i = 0; i < keys.size(); ++i) if (keys[i] == slot.embeddedKey) {
+        if (match >= 0) return -1; // ambiguous identity: never silently choose another language
+        match = static_cast<int>(i);
+    }
+    return match;
 }
 inline bool ShiftSubtitleInterval(int start, int end, int delay, int& first, int& last) {
     const int64_t a = int64_t(start) + delay, b = int64_t(end) + delay;

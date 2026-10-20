@@ -4,7 +4,7 @@
 
 ## 下载与安装
 
-**[下载 Windows x64 一键安装包](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/download/v0.2.0-preview.1/MPC-Bridge-0.2.0-preview.1-x64-Setup.exe)** · [发布页面、便携版和完整源码](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.0-preview.1)
+**[下载 Windows x64 一键安装包](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/download/v0.2.0-preview.2/MPC-Bridge-0.2.0-preview.2-x64-Setup.exe)** · [发布页面、便携版和完整源码](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.0-preview.2)
 
 支持 Windows 10 / 11 x64。打开安装包，点击「安装」，完成后从桌面或开始菜单启动。安装到当前用户目录，无需管理员权限；包含 yt-dlp，无需另行下载。升级保留配置，卸载保留 `MPC-Bridge.ini`，重新安装可继续使用。当前安装包未做代码签名，Windows 可能显示未知发布者提示。
 
@@ -21,9 +21,9 @@
 
 ## 预览版范围
 
-新增两路 SRT 字幕对照：从「文件 → 双字幕对照…」分别加载原文和译文，支持各自调节延迟、字号、颜色、隐藏以及交换。提供底部双层和顶部/底部两种布局，切换清晰度后保留当前两路字幕配置。[使用方法与支持范围](bridge/DUAL-SUBTITLES.md)。
+支持两路字幕对照：从「文件 → 双字幕对照…」分别选择本地 SRT 或内嵌文本轨道，支持各自调节延迟、字号、颜色、隐藏以及交换。提供底部双层和顶部/底部两种布局，切换清晰度后保留当前两路字幕配置。[使用方法与支持范围](bridge/DUAL-SUBTITLES.md)。
 
-本版同时包含独立「清晰度」菜单和有界 MP4 缓存预加载。[缓存与清晰度说明](bridge/CACHE-VALIDATION.md)。字幕需使用内置字幕渲染器；首版两路显示支持本地 SRT，ASS 特效、图片字幕、内嵌轨道混用继续使用普通字幕功能。
+本版同时包含独立「清晰度」菜单和有界 MP4 缓存预加载。[缓存与清晰度说明](bridge/CACHE-VALIDATION.md)。字幕需使用内置字幕渲染器；支持双内嵌和内外混用；内嵌 ASS/SSA 按文字显示，不保留特效。PGS、VobSub 等图片轨道继续使用普通单字幕。
 
 这是 Windows x64 预览版本。受控播放和字幕画面已纳入自动回归；完整人工多显示器、DPI、HDR 和全部媒体兼容性尚未覆盖。此前 YouTube 的本机网络播放限制、签名地址自动刷新等缓存限制仍存在。安装器未签名，原生窗口保留 MPC-BE 品牌。
 

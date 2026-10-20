@@ -4,11 +4,11 @@
 
 ## 安装
 
-[Windows x64 安装包与便携版](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.0-preview.1)。安装包仅为当前用户安装，点击「安装」即可完成；附带解析器、桌面/开始菜单入口和独立卸载登记。升级与卸载保留配置；当前发布未签名。安装器构建和验证见 [INSTALLER.md](../tools/bridge/INSTALLER.md)。
+[Windows x64 安装包与便携版](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.0-preview.2)。安装包仅为当前用户安装，点击「安装」即可完成；附带解析器、桌面/开始菜单入口和独立卸载登记。升级与卸载保留配置；当前发布未签名。安装器构建和验证见 [INSTALLER.md](../tools/bridge/INSTALLER.md)。
 
 ## 当前功能
 
-- 「文件 → 双字幕对照…」可同时显示两份本地 SRT，支持独立延迟、颜色、字号、隐藏、交换及两种布局。需要内置字幕渲染器。[使用与验证范围](DUAL-SUBTITLES.md)。
+- 「文件 → 双字幕对照…」可组合本地 SRT 与内嵌文本轨道，同时显示两路字幕，支持独立延迟、颜色、字号、隐藏、交换及两种布局。需要内置字幕渲染器。[使用与验证范围](DUAL-SUBTITLES.md)。
 
 - 菜单中的「快捷键预设」可选择原生、Bilibili（预览）、YouTube 和自定义。
 - 设置 → 按键中可选择预设、导入 JSON、查看预设键位；点击应用后生效。

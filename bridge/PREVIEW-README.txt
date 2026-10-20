@@ -1,6 +1,6 @@
-mpc-bridge0.2.0-preview.1 预览版 · Windows x64
+mpc-bridge 0.2.0-preview.2 预览版 · Windows x64
 
-此版本增加双字幕对照，并包含清晰度菜单与缓存预加载。
+此版本增加双内嵌文本字幕及内外混用，并包含清晰度菜单与缓存预加载。
 
 安装版：打开 Setup.exe，点击「安装」，完成后从桌面或开始菜单启动。
 便携版：解压到可写目录，双击 Launch-MPC-Bridge.cmd 启动。
@@ -11,7 +11,7 @@ mpc-bridge0.2.0-preview.1 预览版 · Windows x64
 4. 选择「MPC-BE 原生」即可恢复使用原生键位。平台预设不修改原生键位表。
 5. 顶层或右键「清晰度」菜单可切换当前视频的高度；「更多格式」可选择具体编码。
 6. 「清晰度 → 缓存与预加载设置」可设置缓存。默认前方 30 秒、后方 15 秒、总容量 256 MiB；倍速增大前方目标，3 倍速为 90 秒。
-7. 「文件 → 双字幕对照…」分别选择两份本地 SRT，点击应用。支持独立延迟、颜色、字号和两种布局；详细说明见 DUAL-SUBTITLES.md。
+7. 「文件 → 双字幕对照…」分别选择本地 SRT 文件或内嵌文本轨道，点击应用。支持独立延迟、颜色、字号和两种布局；详细说明见 DUAL-SUBTITLES.md。
 8. 修改缓存设置在下次打开在线视频时生效；关闭视频清理缓存，设置内的清理按钮立即生效。
 
 预览版使用目录中的 MPC-Bridge.ini 保存配置，并以新实例启动。
@@ -34,3 +34,5 @@ MPC-Bridge fork：https://github.com/JiaqiZhang-NJU/MPC-Bridge
 本预览对应源码随附在 source.zip 中，确切提交和依赖见 SOURCE.txt、build-manifest.json。
 yt-dlp 源码与发行版：https://github.com/yt-dlp/yt-dlp
 播放器许可见 LICENSE.txt，原项目贡献者见 Authors.txt；yt-dlp 的许可文件见随包对应文件。
+
+内嵌 ASS/SSA 在双字幕中按文字显示，不保留特效。PGS、VobSub 等图片轨道继续使用普通单字幕。

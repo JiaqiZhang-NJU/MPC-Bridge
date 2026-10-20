@@ -232,6 +232,12 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	CComPtr<ISubStream> m_pCurrentSubStream;
 	Bridge::DualSubtitleState m_bridgeSubtitles;
 	std::shared_ptr<CSimpleTextSubtitle> m_bridgeSubtitleSources[2];
+	CComPtr<ISubStream> m_bridgeSubtitleStreams[2];
+	std::atomic<DWORD_PTR> m_bridgeSubtitleObserved[2]{};
+	std::atomic<bool> m_bridgeSubtitleRefreshQueued{false};
+	struct BridgeEmbeddedSubtitle { CComPtr<ISubStream> stream; std::wstring name, key; };
+	std::vector<BridgeEmbeddedSubtitle> GetBridgeEmbeddedSubtitles();
+	void DetachBridgeSubtitles();
 	CComPtr<CDualSubtitleProvider> m_bridgeSubtitleProvider;
 	bool m_bridgeSubtitleActive = false;
 	uint64_t m_bridgeSubtitleFileTokens[2] = {};

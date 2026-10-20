@@ -2574,7 +2574,7 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 
 				switch (GetPlaybackMode()) {
 					case PM_FILE:
-						g_bExternalSubtitleTime = !m_bridgeSubtitles.slots[0].path.empty() && GetMediaState() != State_Running;
+						g_bExternalSubtitleTime = (m_bridgeSubtitles.enabled || !m_bridgeSubtitles.slots[0].path.empty()) && GetMediaState() != State_Running;
 
 						m_pMS->GetDuration(&rtDur);
 						m_pMS->GetCurrentPosition(&rtNow);
@@ -2655,7 +2655,7 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 				if (m_pCAP) {
 					if (g_bExternalSubtitleTime) {
 						m_pCAP->SetTime(rtNow);
-						if (!m_bridgeSubtitles.slots[0].path.empty()) {
+						if (m_bridgeSubtitles.enabled || !m_bridgeSubtitles.slots[0].path.empty()) {
 							static REFERENCE_TIME lastTime = -1;
 							static ISubPicProvider* lastProvider = nullptr;
 							static int refreshFrames = 0;
@@ -16878,6 +16878,11 @@ void CMainFrame::ReplaceSubtitle(ISubStream* pSubStreamOld, ISubStream* pSubStre
 	for (auto& pSubStream : m_pSubStreams) {
 		if (pSubStreamOld == pSubStream.p) {
 			pSubStream = pSubStreamNew;
+            if ((m_bridgeSubtitleObserved[0] == reinterpret_cast<DWORD_PTR>(pSubStreamOld)
+                || m_bridgeSubtitleObserved[1] == reinterpret_cast<DWORD_PTR>(pSubStreamOld))
+                && !m_bridgeSubtitleRefreshQueued.exchange(true)) {
+                if (!PostMessageW(WM_COMMAND, ID_BRIDGE_SUBTITLE_REFRESH)) m_bridgeSubtitleRefreshQueued = false;
+            }
 			UpdateSubtitle();
 			break;
 		}
@@ -16886,12 +16891,14 @@ void CMainFrame::ReplaceSubtitle(ISubStream* pSubStreamOld, ISubStream* pSubStre
 
 void CMainFrame::InvalidateSubtitle(DWORD_PTR nSubtitleId, REFERENCE_TIME rtInvalidate)
 {
-	if (m_bridgeSubtitles.enabled && m_bridgeSubtitleActive
-		&& (nSubtitleId == -1 || nSubtitleId == (DWORD_PTR)m_pCurrentSubStream.p)) {
-		// Editors may notify while holding m_csSubLock. Never replace a queue
-		// provider under that lock; defer until the editor has released it.
-		PostMessageW(WM_COMMAND, ID_BRIDGE_SUBTITLE_REFRESH);
-	}
+    const auto first = m_bridgeSubtitleObserved[0].load();
+    const auto second = m_bridgeSubtitleObserved[1].load();
+    if ((first || second) && (nSubtitleId == DWORD_PTR(-1) || nSubtitleId == first || nSubtitleId == second)
+        && !m_bridgeSubtitleRefreshQueued.exchange(true)) {
+        // Decode/NewSegment callbacks can hold the subtitle lock. Rebuild only
+        // on the UI thread, coalescing updates from both streaming tracks.
+        if (!PostMessageW(WM_COMMAND, ID_BRIDGE_SUBTITLE_REFRESH)) m_bridgeSubtitleRefreshQueued = false;
+    }
 	if (m_pCAP) {
 		if (nSubtitleId == -1 || nSubtitleId == (DWORD_PTR)m_pCurrentSubStream.p) {
 			m_pCAP->Invalidate(rtInvalidate);

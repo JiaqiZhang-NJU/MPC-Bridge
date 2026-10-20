@@ -27,5 +27,14 @@ int main() {
     assert(ValidSubtitleSlot(state.slots[0]));
     state.slots[0].delayMs=600001;assert(!ValidSubtitleSlot(state.slots[0]));
     state.slots[0].delayMs=0;state.slots[0].fontSize=49;assert(!ValidSubtitleSlot(state.slots[0]));
+    SubtitleSlot track; track.embeddedTrack=1; track.embeddedKey=L"srt|Chinese";
+    assert(ResolveEmbeddedTrack(track,{L"srt|English",L"srt|Chinese"})==1);
+    assert(ResolveEmbeddedTrack(track,{L"srt|Chinese",L"srt|English"})==0);
+    assert(ResolveEmbeddedTrack(track,{L"srt|English"})==-1);
+    assert(ResolveEmbeddedTrack(track,{L"srt|Chinese",L"srt|English",L"srt|Chinese"})==-1);
+    state.slots[0]=track;state.slots[1]={};state.slots[1].path=L"translation.srt";
+    std::swap(state.slots[0],state.slots[1]);
+    assert(state.slots[1].embeddedTrack==1 && state.slots[1].embeddedKey==L"srt|Chinese");
+    assert(state.slots[0].embeddedTrack==-1 && state.slots[0].path==L"translation.srt");
     std::cout<<"PASS: subtitle offsets, overflow, empty intervals, exchange, validation and disjoint layouts\n";
 }

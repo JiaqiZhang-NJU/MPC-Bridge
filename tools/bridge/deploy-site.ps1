@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 if (-not $PackageDirectory) { $PackageDirectory = Join-Path $root '_bin/bridge/packages' }
-$version = '0.2.0-preview.1'
+$version = '0.2.0-preview.2'
 $id = [Guid]::NewGuid().ToString('N')
 $stage = Join-Path $root "_bin/bridge/site-stage-$id"
 New-Item -ItemType Directory -Path $stage | Out-Null
