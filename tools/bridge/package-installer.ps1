@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)][string]$Compiler,
     [string]$Version = '0.2.1-preview.1',
     [string]$FileVersion = '0.2.1.1'
