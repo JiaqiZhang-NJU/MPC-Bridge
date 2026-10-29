@@ -60,6 +60,7 @@ void CPPagePlayer::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CPPagePlayer, CPPageBase)
+	ON_BN_CLICKED(ID_BRIDGE_MEMORY_SETTINGS, OnMemorySettings)
 	ON_UPDATE_COMMAND_UI(IDC_DVD_POS, OnUpdateKeepHistory)
 	ON_UPDATE_COMMAND_UI(IDC_FILE_POS, OnUpdateKeepHistory)
 END_MESSAGE_MAP()
@@ -128,6 +129,13 @@ BOOL CPPagePlayer::OnInitDialog()
 	m_spnNetworkReceiveTimeout.SetRange(APP_NETRECEIVETIMEOUT_MIN, APP_NETRECEIVETIMEOUT_MAX);
 
 	UpdateData(FALSE);
+	CRect memoryRect(129, 238, 286, 254); MapDialogRect(memoryRect);
+	const auto lang = s.iCurrentLanguage;
+	const bool chinese = lang == CMPlayerCApp::GetLanguageIndex(ID_LANGUAGE_CHINESE_SIMPLIFIED)
+		|| lang == CMPlayerCApp::GetLanguageIndex(ID_LANGUAGE_CHINESE_TRADITIONAL);
+	m_memorySettings.Create(chinese ? L"\x64ad\x653e\x8bb0\x5fc6\x8bbe\x7f6e..." : L"Playback memory settings...",
+		WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, memoryRect, this, ID_BRIDGE_MEMORY_SETTINGS);
+	m_memorySettings.SetFont(GetFont());
 
 	GetDlgItem(IDC_FILE_POS)->EnableWindow(s.bKeepHistory);
 	GetDlgItem(IDC_DVD_POS)->EnableWindow(s.bKeepHistory);
@@ -265,4 +273,13 @@ void CPPagePlayer::OnUpdateKeepHistory(CCmdUI* pCmdUI)
 	UpdateData();
 
 	pCmdUI->Enable(!!m_bKeepHistory);
+}
+
+void CPPagePlayer::OnMemorySettings() {
+	// Commit pending controls before opening the shared memory settings dialog.
+	if (!OnApply()) return;
+	AfxGetMainFrame()->SendMessageW(WM_COMMAND, ID_BRIDGE_MEMORY_SETTINGS);
+	m_bKeepHistory = AfxGetAppSettings().bKeepHistory;
+	m_bRememberFilePos = AfxGetAppSettings().bRememberFilePos;
+	UpdateData(FALSE);
 }

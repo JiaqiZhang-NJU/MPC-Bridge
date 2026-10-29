@@ -19,7 +19,20 @@ def query(hwnd, command, argument=0):
     return result.value
 
 
-def mkv(path, ass=False):
+def pgs_sample(number, clear=False):
+    """Self-made PGS composition, palette and RLE object; no external encoder."""
+    def segment(kind, body):
+        return bytes([kind])+struct.pack('>H', len(body))+body
+    pcs = struct.pack('>HHBHB',640,360,0x10,number,0x80)+bytes([0,0,0 if clear else 1])
+    if clear:
+        return segment(0x16,pcs)+segment(0x80,b'')
+    pcs += struct.pack('>HBBHH',0,0,0,200,310)
+    rle = (bytes([1])*240+b'\x00\x00')*20
+    obj = struct.pack('>HBB',0,0,0xc0)+(len(rle)+4).to_bytes(3,'big')+struct.pack('>HH',240,20)+rle
+    return segment(0x16,pcs)+segment(0x14,bytes([0,0,1,235,128,128,255]))+segment(0x15,obj)+segment(0x80,b'')
+
+
+def mkv(path, ass=False, pgs=False):
     def size(n):
         for width in range(1, 9):
             if n < (1 << (7 * width)) - 1:
@@ -49,7 +62,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
     for number, name, language in [(2, 'English', 'eng'), (3, 'Chinese', 'chi')]:
         entry = uint('d7', number)+uint('73c5', number)+uint('83', 17)+text('536e', name)+text('22b59c', language)
-        entry += text('86', 'S_TEXT/ASS' if ass else 'S_TEXT/UTF8')
+        entry += text('86', 'S_HDMV/PGS' if pgs else 'S_TEXT/ASS' if ass else 'S_TEXT/UTF8')
         if ass:
             entry += elem('63a2', private.encode())
         tracks += elem('ae', entry)
@@ -57,6 +70,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     Image.new('RGB', (640, 360), (0, 0, 0)).save(buf, format='JPEG', quality=90)
     cues = [(1000, 8000, 2, 'Original first line'), (14000, 18000, 2, 'Original second line'),
             (2000, 4000, 3, '第一段译文'), (4000, 9000, 3, '第二段译文')]
+    if pgs:
+        original = cues
+        cues = []
+        for order, (start, end, track, _) in enumerate(original):
+            cues.append((start,end,track,pgs_sample(order*2)))
+            if not any(a == end and c == track for a, _, c, _ in original):
+                cues.append((end,end+1,track,pgs_sample(order*2+1,clear=True)))
     clusters, index = [], []
     def seek_head(position):
         return elem('114d9b74', elem('4dbb', elem('53ab', bytes.fromhex('1c53bb6b'))
@@ -70,7 +90,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 continue
             if ass:
                 value = f'{order},0,Default,,0,0,0,,{{\\pos(600,20)\\c&H0000FF&}}' + value
-            block = bytes([0x80 | track])+struct.pack('>hB', start-second*1000, 0)+value.encode()
+            block = bytes([0x80 | track])+struct.pack('>hB', start-second*1000, 0)+(value if pgs else value.encode())
             entries.append((start, track, elem('a0', elem('a1', block)+uint('9b', end-start))))
         cluster_position = len(segment_prefix)+sum(map(len, clusters))
         body = uint('e7', second*1000)
@@ -99,16 +119,23 @@ def select(dlg, slot, index):
 
 
 def both(port, folder, name):
-    counts, h = picture(port, folder, name)
+    deadline = time.monotonic()+4
+    while True:
+        counts, h = picture(port, folder, name)
+        if sum(counts[int(h*.64):int(h*.81)]) > 30 and sum(counts[int(h*.81):]) > 30:
+            return
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(.2)
     assert sum(counts[int(h*.64):int(h*.81)]) > 30, ('primary missing', name)
     assert sum(counts[int(h*.81):]) > 30, ('secondary missing', name)
 
 
-def run(renderer, ass=False):
-    folder = ROOT/'_bin/bridge/embedded-qa'/f'vr{renderer}-ass{ass}-{time.time_ns()}'
+def run(renderer, ass=False, pgs=False):
+    folder = ROOT/'_bin/bridge/embedded-qa'/f'vr{renderer}-ass{ass}-pgs{pgs}-{time.time_ns()}'
     folder.mkdir(parents=True)
     movie = folder/'two-tracks.mkv'
-    mkv(movie, ass)
+    mkv(movie, ass, pgs)
     external = folder/'external.srt'
     external.write_text('1\n00:00:01,000 --> 00:00:09,000\nExternal translation\n', encoding='utf-8-sig')
     player = folder/'embedded-player.exe'
@@ -140,6 +167,65 @@ def run(renderer, ass=False):
         click(dlg, 2)
         seek(port, 3000)
         both(port, folder, 'two-embedded')
+        if pgs:
+            original, image_height = picture(port, folder, 'picture-scale-100')
+            dlg = dialog(hwnd)
+            edit(dlg, 609, 50)
+            click(dlg, 614)
+            click(dlg, 2)
+            seek(port, 3000)
+            deadline = time.monotonic()+4
+            while True:
+                smaller, _ = picture(port, folder, 'picture-scale-50')
+                main = sum(smaller[int(image_height*.64):int(image_height*.81)])
+                secondary = sum(smaller[int(image_height*.81):])
+                if main > 30 and 30 < secondary < sum(original[int(image_height*.81):])*.55:
+                    break
+                if time.monotonic() >= deadline:
+                    raise AssertionError(('PGS 50% scale did not settle', main, secondary))
+                time.sleep(.2)
+            dlg = dialog(hwnd)
+            edit(dlg, 609, 100)
+            query(user.GetDlgItem(dlg, 612), 0x14e, 1)
+            click(dlg, 614)
+            click(dlg, 2)
+            seek(port, 3000)
+            deadline = time.monotonic()+4
+            while True:
+                layout, _ = picture(port, folder, 'picture-top-bottom')
+                if sum(layout[:int(image_height*.45)]) > 30 and sum(layout[int(image_height*.55):]) > 30:
+                    break
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(.2)
+            assert sum(layout[:int(image_height*.45)]) > 30 and sum(layout[int(image_height*.55):]) > 30
+            dlg = dialog(hwnd)
+            query(user.GetDlgItem(dlg, 612), 0x14e, 0)
+            click(dlg, 614)
+            click(dlg, 2)
+        if pgs and '--stress' in sys.argv:
+            for iteration in range(20):
+                for percent, placement in ((50, 0), (100, 1)):
+                    dlg = dialog(hwnd)
+                    edit(dlg, 609, percent)
+                    query(user.GetDlgItem(dlg, 612), 0x14e, placement)
+                    click(dlg, 614)
+                    click(dlg, 2)
+                    seek(port, 3000)
+                    deadline = time.monotonic()+4
+                    while True:
+                        rows, height = picture(port, folder, f'stress-{iteration}-{percent}')
+                        upper = sum(rows[:int(height*.45)]) if placement else sum(rows[int(height*.64):int(height*.81)])
+                        lower = sum(rows[int(height*.55):]) if placement else sum(rows[int(height*.81):])
+                        if min(upper, lower)>30:
+                            break
+                        assert time.monotonic()<deadline, ('paused stress failed',iteration,percent,upper,lower)
+                        time.sleep(.2)
+                print(f'PASS paused scale/layout round {iteration+1}/20', flush=True)
+            dlg = dialog(hwnd)
+            query(user.GetDlgItem(dlg, 612), 0x14e, 0)
+            click(dlg, 614)
+            click(dlg, 2)
         seek(port, 1500)
         counts, h = picture(port, folder, 'before-secondary')
         assert sum(counts[int(h*.81):]) < 20
@@ -220,7 +306,7 @@ def run(renderer, ass=False):
         both(port, folder, 'fullscreen-frame-step')
         dlg = dialog(hwnd)
         click(dlg, 615)
-        print(f'PASS renderer {renderer}, ASS={ass}: two embedded tracks, both file mixes, packet updates, seeks/gaps, delays, duplicate rollback, toggle, swap, fullscreen; {folder}', flush=True)
+        print(f'PASS renderer {renderer}, ASS={ass}, PGS={pgs}: two embedded tracks, both file mixes, packet updates, seeks/gaps, delays, duplicate rollback, toggle, swap, fullscreen; {folder}', flush=True)
     finally:
         if hwnd:
             user.PostMessageW(hwnd, 0x111, 816, 0)
@@ -235,4 +321,4 @@ def run(renderer, ass=False):
 
 if __name__ == '__main__':
     for renderer in ([int(sys.argv[1])] if len(sys.argv)>1 and sys.argv[1].isdigit() else [3, 5]):
-        run(renderer, '--ass' in sys.argv)
+        run(renderer, '--ass' in sys.argv, '--pgs' in sys.argv)

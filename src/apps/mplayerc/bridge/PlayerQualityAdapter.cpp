@@ -15,6 +15,7 @@ bool ChineseUI() {
 
 void CMainFrame::AddBridgeQualityMenu(CMenu& root)
 {
+    AddBridgeMemoryMenu(root);
     for (int i = 0; i < root.GetMenuItemCount(); ++i) {
         auto sub = root.GetSubMenu(i);
         if (sub && sub->GetMenuItemID(0) == ID_BRIDGE_QUALITY_DEFAULT) return;
@@ -71,7 +72,17 @@ void CMainFrame::OnBridgeQualitySelected(UINT id)
     const bool automatic = id == ID_BRIDGE_QUALITY_DEFAULT;
     const auto found = m_bridgeQualityCommands.find(id);
     const UINT index = automatic ? m_YtDlp.GetDefaultVideoIndex() : found != m_bridgeQualityCommands.end() ? found->second : UINT_MAX;
-    if (index != UINT_MAX) SwitchBridgeQuality(index, automatic);
+    if (index != UINT_MAX) {
+        auto& record = m_bridgeMemory.record;
+        record.qualityAutomatic = automatic;
+        const auto formats = m_YtDlp.GetVideoFormats();
+        if (index < formats.size()) {
+            const auto& format = formats[index]; record.qualityFormat = format.id.GetString();
+            record.qualityHeight = format.height; record.qualityCodec = format.codec; record.qualityFps = format.fps;
+        }
+        SwitchBridgeQuality(index, automatic);
+        SaveBridgePlaybackMemory(true);
+    }
 }
 
 void CMainFrame::OnUpdateBridgeQuality(CCmdUI* command)

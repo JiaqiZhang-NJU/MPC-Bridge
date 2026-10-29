@@ -489,6 +489,7 @@ public:
 	bool			bKeepHistory;
 	unsigned		nHistoryEntriesMax;
 	bool			bRememberFilePos;
+	bool            bRememberVideoSettings = true;
 	bool			bRememberDVDPos;
 
 	int				iRecentFilesNumber;

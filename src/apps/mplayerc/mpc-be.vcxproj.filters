@@ -2,7 +2,14 @@
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="bridge\DualSubtitleModel.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\SubtitleCatalog.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\SubtitleTextSource.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\PlaybackMemory.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="bridge\DualSubtitleProvider.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\MatroskaSubtitleReader.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\MatroskaSubtitleSource.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\SubtitleFilePreparation.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="bridge\SubtitleTranslation.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="bridge\MediaCache.h"><Filter>Online</Filter></ClInclude>
     <ClInclude Include="bridge\MediaCacheModel.h"><Filter>Online</Filter></ClInclude>
     <ClInclude Include="bridge\QualityModel.h"><Filter>Online</Filter></ClInclude>
@@ -72,8 +79,14 @@
     <ClCompile Include="bridge\MediaCache.cpp"><Filter>Online</Filter></ClCompile>
     <ClCompile Include="bridge\MediaTimeIndex.cpp"><Filter>Online</Filter></ClCompile>
     <ClCompile Include="bridge\DualSubtitleProvider.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="bridge\MatroskaSubtitleReader.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="bridge\MatroskaSubtitleSource.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="bridge\SubtitleFilePreparation.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="bridge\SubtitleTranslation.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="bridge\PlayerSubtitleAdapter.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="bridge\PlayerQualityAdapter.cpp"><Filter>Online</Filter></ClCompile>
+    <ClCompile Include="bridge\PlaybackMemory.cpp"><Filter>Online</Filter></ClCompile>
+    <ClCompile Include="bridge\PlayerPlaybackMemoryAdapter.cpp"><Filter>Online</Filter></ClCompile>
     <ClCompile Include="bridge\CacheSettingsDialog.cpp"><Filter>Dialogs</Filter></ClCompile>
     <ClCompile Include="bridge\OnlineVideoDialog.cpp">
       <Filter>Online</Filter>

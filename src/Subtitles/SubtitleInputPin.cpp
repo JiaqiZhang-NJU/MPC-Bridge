@@ -530,6 +530,9 @@ REFERENCE_TIME CSubtitleInputPin::DecodeSample(const std::unique_ptr<SubtitleSam
 		} else if (IsHdmvSub(&m_mt)) {
 			CRenderedHdmvSubtitle* pHdmvSubtitle = (CRenderedHdmvSubtitle*)m_pSubStream.p;
 			pHdmvSubtitle->ParseSample(pData, nLen, tStart, tStop);
+			// A combined provider snapshots picture boundaries just like text.
+			// Notify after releasing the decode lock, including PGS clear events.
+			bInvalidate = true;
 		} else if (m_mt.subtype == MEDIASUBTYPE_XSUB) {
 			CXSUBSubtitle* pXSUBSubtitle = (CXSUBSubtitle*)m_pSubStream.p;
 			pXSUBSubtitle->ParseSample(pData, nLen);

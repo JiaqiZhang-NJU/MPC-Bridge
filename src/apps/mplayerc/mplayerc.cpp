@@ -289,6 +289,9 @@ bool CMPlayerCApp::ChangeSettingsLocation(const SettingsLocation newSetLocation)
 
 		m_HistoryFile.SetFilename(newpath + MPC_HISTORY_FILENAME);
 		m_FavoritesFile.SetFilename(newpath + MPC_FAVORITES_FILENAME);
+		if (!Bridge::MemoryStore().Relocate(oldpath.GetString(), newpath.GetString())) {
+			MessageBoxW(nullptr, L"Moving playback memory failed. The original records were kept.", ResStr(IDS_AG_ERROR), MB_OK);
+		}
 
 		if (::PathFileExistsW(oldHistoryPath)) {
 			// moving history file

@@ -8,13 +8,13 @@ root=/var/www/mpc-bridge
 homepage=/var/www/website4self/index.html
 config=/etc/nginx/sites-available/mpc-bridge
 enabled=/etc/nginx/sites-enabled/mpc-bridge
-version=v0.2.0-preview.2
+version=v0.2.1-preview.1
 for path in "$root" "$root/downloads" "$root/downloads/$version" "$root/legal" "$config"; do [[ ! -L $path ]]; done
 [[ ! -e $enabled || $(readlink -f "$enabled") == "$config" ]]
 [[ -f $homepage && ! -L $homepage ]]
 cd "$stage"
 sha256sum --strict -c upload.sha256
-sed 's/\r$//' MPC-Bridge-0.2.0-preview.2-SHA256SUMS.txt | sha256sum --strict -c -
+sed 's/\r$//' MPC-Bridge-0.2.1-preview.1-SHA256SUMS.txt | sha256sum --strict -c -
 nginx -t
 curl -fsS --max-time 20 https://credits.jqzhang.top/health >/dev/null
 getent ahostsv4 mpc.jqzhang.top | awk '{print $1}' | grep -qx '117.72.210.148'
@@ -68,7 +68,7 @@ if [[ -e $destination ]]; then
 else
     incoming=$(mktemp -d "$root/downloads/.incoming-XXXXXX")
     while read -r expected name; do
-        [[ $name =~ ^MPC-Bridge-0\.2\.0-preview\.2-(x64-Setup\.exe|x64\.zip|source\.zip|SHA256SUMS\.txt)$ ]]
+        [[ $name =~ ^MPC-Bridge-0\.2\.1-preview\.1-(x64-Setup\.exe|x64\.zip|source\.zip|SHA256SUMS\.txt)$ ]]
         install -m 644 "$stage/$name" "$incoming/$name"
     done < asset.sha256
     (cd "$incoming" && sha256sum --strict -c "$stage/asset.sha256")
@@ -110,7 +110,7 @@ for name in paths:
 assert digest('https://jqzhang.top/')==hashlib.sha256(home.read_bytes()).hexdigest()
 for line in (stage/'asset.sha256').read_text().splitlines():
     expected,name=line.split()
-    assert digest(base+'downloads/v0.2.0-preview.2/'+name)==expected,name
+    assert digest(base+'downloads/v0.2.1-preview.1/'+name)==expected,name
     print('PASS complete public download SHA-256:',name)
 with urllib.request.urlopen('https://credits.jqzhang.top/health',timeout=20) as r:
     assert r.status==200

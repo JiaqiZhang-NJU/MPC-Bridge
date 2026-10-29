@@ -202,16 +202,6 @@ HRESULT CHdmvSub::Render(SubPicDesc& spd, REFERENCE_TIME rt, RECT& bbox)
 
 				bbox.left = bbox.left > 0 ? bbox.left : 0;
 				bbox.top  = bbox.top > 0 ? bbox.top : 0;
-				if (m_VideoDescriptor.nVideoWidth != spd.w) {
-					bbox.left  = MulDiv(bbox.left, spd.w, m_VideoDescriptor.nVideoWidth);
-					bbox.right = MulDiv(bbox.right, spd.w, m_VideoDescriptor.nVideoWidth);
-				}
-
-				if (m_VideoDescriptor.nVideoHeight != spd.h) {
-					bbox.top    = MulDiv(bbox.top, spd.h, m_VideoDescriptor.nVideoHeight);
-					bbox.bottom = MulDiv(bbox.bottom, spd.h, m_VideoDescriptor.nVideoHeight);
-				}
-
 				TRACE_HDMVSUB(L"CHdmvSub::Render() : size - %ld, ObjRes - %dx%d, SPDRes - %dx%d, %I64d [%s]",
 							  pObject->GetRLEDataSize(),
 							  pObject->m_width, pObject->m_height, spd.w, spd.h,
@@ -226,6 +216,19 @@ HRESULT CHdmvSub::Render(SubPicDesc& spd, REFERENCE_TIME rt, RECT& bbox)
 	}
 
 	FinalizeRender(spd);
+	// Accumulate every object in video coordinates before scaling the union.
+	// Scaling inside the loop repeatedly shrinks earlier objects and can cut
+	// complete lines out of multi-object PGS, especially UHD subtitle canvases.
+	if (hr == S_OK) {
+		if (m_VideoDescriptor.nVideoWidth != spd.w) {
+			bbox.left  = MulDiv(bbox.left, spd.w, m_VideoDescriptor.nVideoWidth);
+			bbox.right = MulDiv(bbox.right, spd.w, m_VideoDescriptor.nVideoWidth);
+		}
+		if (m_VideoDescriptor.nVideoHeight != spd.h) {
+			bbox.top    = MulDiv(bbox.top, spd.h, m_VideoDescriptor.nVideoHeight);
+			bbox.bottom = MulDiv(bbox.bottom, spd.h, m_VideoDescriptor.nVideoHeight);
+		}
+	}
 
 	return hr;
 }

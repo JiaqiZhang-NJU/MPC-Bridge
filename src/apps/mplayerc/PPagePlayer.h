@@ -52,6 +52,7 @@ public:
 
 	CComboBox m_cbTitleBarPrefix;
 	CComboBox m_cbSeekBarText;
+	CButton m_memorySettings;
 
 	CIntEdit m_edtHistoryEntriesMax;
 	CSpinButtonCtrl m_spnHistoryEntriesMax;
@@ -74,4 +75,5 @@ protected:
 
 public:
 	afx_msg void OnUpdateKeepHistory(CCmdUI* pCmdUI);
+	afx_msg void OnMemorySettings();
 };

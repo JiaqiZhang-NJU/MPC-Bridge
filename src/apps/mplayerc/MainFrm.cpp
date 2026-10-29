@@ -208,6 +208,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_MESSAGE(WM_RESET_DEVICE, OnResetDevice)
 
 	ON_MESSAGE(WM_POSTOPEN, OnPostOpen)
+	ON_MESSAGE(WM_BRIDGE_SEEK, OnBridgeSeek)
 
 	ON_MESSAGE_VOID(WM_SAVESETTINGS, SaveAppSettings)
 
@@ -258,6 +259,12 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_BRIDGE_CACHE_SETTINGS, OnBridgeCacheSettings)
 	ON_COMMAND(ID_BRIDGE_DUAL_SUBTITLES, OnBridgeDualSubtitles)
 	ON_COMMAND(ID_BRIDGE_SUBTITLE_REFRESH, OnBridgeSubtitleRefresh)
+	ON_COMMAND(ID_BRIDGE_MEMORY_SETTINGS, OnBridgeMemorySettings)
+	ON_COMMAND(ID_BRIDGE_MEMORY_RESTART, OnBridgeMemoryRestart)
+	ON_COMMAND(ID_BRIDGE_MEMORY_CLEAR, OnBridgeMemoryClear)
+	ON_COMMAND(ID_BRIDGE_MEMORY_SAVE, OnBridgeMemorySave)
+	ON_UPDATE_COMMAND_UI(ID_BRIDGE_MEMORY_RESTART, OnUpdateBridgeMemory)
+	ON_UPDATE_COMMAND_UI(ID_BRIDGE_MEMORY_CLEAR, OnUpdateBridgeMemory)
 	ON_COMMAND_RANGE(ID_BRIDGE_QUALITY_DEFAULT, ID_BRIDGE_QUALITY_DEFAULT, OnBridgeQualitySelected)
 	ON_COMMAND_RANGE(ID_BRIDGE_QUALITY_START, ID_BRIDGE_QUALITY_END, OnBridgeQualitySelected)
 	ON_UPDATE_COMMAND_UI(ID_BRIDGE_QUALITY_DEFAULT, OnUpdateBridgeQuality)
@@ -2658,14 +2665,21 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 						if (m_bridgeSubtitles.enabled || !m_bridgeSubtitles.slots[0].path.empty()) {
 							static REFERENCE_TIME lastTime = -1;
 							static ISubPicProvider* lastProvider = nullptr;
-							static int refreshFrames = 0;
 							static bool lastEnabled = true;
 							auto provider = m_bridgeSubtitleActive ? m_bridgeSubtitleProvider.p : nullptr;
 							// MPCVR can use six HDR swap-chain buffers. Refresh enough
 							// frames to retire every cached image after a paused edit.
-							if (lastTime != rtNow || lastProvider != provider || lastEnabled != s.fEnableSubtitles) refreshFrames = 8;
+							if (lastTime != rtNow || lastProvider != provider || lastEnabled != s.fEnableSubtitles) m_bridgeSubtitleRefreshFrames = 8;
 							lastTime = rtNow; lastProvider = provider; lastEnabled = s.fEnableSubtitles;
-							if (refreshFrames > 0) { --refreshFrames; m_pCAP->Paint(false); }
+							if (m_bridgeSubtitleRefreshFrames > 0) {
+								// A paused seek/edit can leave a valid but transparent
+								// queued subpic. Repaint alone reuses it indefinitely.
+								// Retire it after SetTime, then allow async rendering
+								// to finish during the remaining swap-chain redraws.
+								if ((m_bridgeSubtitleRefreshFrames == 8 || m_bridgeSubtitleRefreshFrames == 4)
+									&& GetMediaState() != State_Running) m_pCAP->Invalidate();
+								--m_bridgeSubtitleRefreshFrames; m_pCAP->Paint(false);
+							}
 						}
 					}
 					m_wndSubresyncBar.SetTime(rtNow);
@@ -2678,6 +2692,7 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 			}
 			break;
 		case TIMER_STREAMPOSPOLLER2:
+			SaveBridgePlaybackMemory();
 			UpdateBridgeCache();
 			RefreshBridgeSubtitleFiles();
 			if (m_eMediaLoadState == MLS_LOADED) {
@@ -3153,6 +3168,7 @@ bool CMainFrame::DoAfterPlaybackEvent()
 bool CMainFrame::GraphEventComplete()
 {
 	m_bGraphEventComplete = true;
+	SaveBridgePlaybackMemory(true);
 
 	CAppSettings& s = AfxGetAppSettings();
 
@@ -4856,7 +4872,8 @@ void CMainFrame::OnFilePostOpenMedia(std::unique_ptr<OpenMediaData>& pOMD)
 
 	m_bOpening = false;
 	ShowBridgeOnlineQuality();
-	FinishBridgeQualitySwitch(true);
+	if (m_bridgeQualitySwitch.pending) FinishBridgeQualitySwitch(true);
+	else RestoreBridgePlaybackMemory();
 }
 
 void CMainFrame::OnFilePostCloseMedia()
@@ -8282,6 +8299,8 @@ void CMainFrame::OnPlayPlay()
 				SendMessageW(WM_COMMAND, ID_PLAY_STOP);
 				SendMessageW(WM_COMMAND, ID_PLAY_PLAYPAUSE);
 			}
+			m_bridgeMemory.stopped = false;
+			if (m_bGraphEventComplete && !m_bEndOfStream) m_bGraphEventComplete = false;
 			if (m_bIsLiveOnline || FAILED(m_pMS->SetRate(m_PlaybackRate))) {
 				m_PlaybackRate = 1.0;
 			};
@@ -8454,6 +8473,10 @@ void CMainFrame::OnPlayPlayPause()
 void CMainFrame::OnPlayStop()
 {
 	CancelBridgeHold();
+	if (m_eMediaLoadState == MLS_LOADED && !m_bridgeMemory.applying) {
+		SaveBridgePlaybackMemory(true);
+		m_bridgeMemory.stopped = true;
+	}
 	if (m_eMediaLoadState == MLS_LOADED) {
 		if (GetPlaybackMode() == PM_FILE) {
 			LONGLONG pos = 0;
@@ -12809,9 +12832,9 @@ CString CMainFrame::OpenFile(OpenFileData* pOFD, const CStringW& youtubeUrl)
 			if (s.bKeepHistory) {
 				// read file position from history
 				auto& historyFile = AfxGetMyApp()->m_HistoryFile;
-				bool found = historyFile.OpenSessionInfo(m_SessionInfo, s.bRememberFilePos);
+				bool found = historyFile.OpenSessionInfo(m_SessionInfo, s.bRememberFilePos && !m_bridgeMemory.supported);
 
-				if (found && s.bRememberFilePos) {
+				if (found && s.bRememberFilePos && !m_bridgeMemory.supported) {
 					// restore file position and track numbers
 					if (m_pMS && m_SessionInfo.Position > 0) {
 						REFERENCE_TIME rtDur;
@@ -14463,7 +14486,9 @@ CStringW CMainFrame::CheckOpenYtDlp(OpenFileData& ofd)
 
 					ok = m_YtDlp.Parse_URL(url);
 					if (ok) {
+						PrepareBridgePlaybackMemory(ofd, url);
 						OpenFileData OFD;
+						OFD.rtStart = ofd.rtStart;
 						ok = m_YtDlp.FillOFD(OFD);
 						if (ok) {
 							youtubeUrl = url;
@@ -14568,6 +14593,7 @@ bool CMainFrame::OpenMediaPrivate(std::unique_ptr<OpenMediaData>& pOMD)
 
 	if (pFileData) {
 		youtubeUrl = CheckOpenYtDlp(*pFileData);
+		if (youtubeUrl.IsEmpty()) PrepareBridgePlaybackMemory(*pFileData, pFileData->fi.GetPath());
 	}
 
 	for (;;) {
@@ -14760,7 +14786,7 @@ bool CMainFrame::OpenMediaPrivate(std::unique_ptr<OpenMediaData>& pOMD)
 
 		m_bUseReclock = (FindFilter(CLSID_ReClock, m_pGB) != nullptr);
 
-		if (pFileData && pFileData->rtStart > 0 && m_pMS) {
+		if (pFileData && pFileData->rtStart >= 0 && m_pMS) {
 			REFERENCE_TIME rtDur = 0;
 			m_pMS->GetDuration(&rtDur);
 			if (rtDur > 0 && pFileData->rtStart <= rtDur) {
@@ -16864,8 +16890,11 @@ void CMainFrame::SetSubtitle(ISubStream* pSubStream, int iSubtitleSel/* = -1*/, 
 		m_pCAP->SetSubpicSettings(&s.m_VRSettings.SubpicSets);
 
 		g_bExternalSubtitle = (std::find(m_ExternalSubstreams.cbegin(), m_ExternalSubstreams.cend(), pSubStream) != m_ExternalSubstreams.cend());
-		m_pCAP->SetSubPicProvider(CComQIPtr<ISubPicProvider>(pSubStream));
-		AttachBridgeSubtitles(pSubStream);
+		// Publish the final provider once. Briefly installing the native PGS
+		// first can enqueue single-track frames into a paused swap chain.
+		if (!AttachBridgeSubtitles(pSubStream)) {
+			m_pCAP->SetSubPicProvider(CComQIPtr<ISubPicProvider>(pSubStream));
+		}
 		if (s.fUseSybresync) {
 			CAutoLock cAutoLock(&m_csSubLock);
 			m_wndSubresyncBar.SetSubtitle(pSubStream, m_pCAP->GetFPS());
@@ -17008,6 +17037,7 @@ void CMainFrame::SetAudioTrackIdx(int index)
 		DWORD cStreams = 0;
 		if (pSS && SUCCEEDED(pSS->Count(&cStreams))) {
 			pSS->Enable(index, AMSTREAMSELECTENABLE_ENABLE);
+			if (m_bridgeMemory.ready && !m_bridgeMemory.applying) m_bridgeMemory.degradedAudio = false;
 		}
 	}
 }
@@ -17156,8 +17186,27 @@ REFERENCE_TIME const CMainFrame::GetClosestKeyFrame(REFERENCE_TIME rtTarget)
 	return ret;
 }
 
+namespace {
+struct BridgeSeekRequest { REFERENCE_TIME position; bool showOSD; };
+}
+
+LRESULT CMainFrame::OnBridgeSeek(WPARAM, LPARAM data)
+{
+	// SendMessage keeps this stack request alive until UI-thread seeking finishes.
+	const auto& request = *reinterpret_cast<const BridgeSeekRequest*>(data);
+	if (m_eMediaLoadState == MLS_LOADED) SeekTo(request.position, request.showOSD);
+	return 0;
+}
+
 void CMainFrame::SeekTo(REFERENCE_TIME rtPos, bool bShowOSD/* = true*/)
 {
+	// The HTTP control server invokes SeekTo on its socket thread. MFC window
+	// updates and playback-memory snapshots must share the normal UI ordering.
+	if (GetCurrentThreadId() != AfxGetApp()->m_nThreadID) {
+		BridgeSeekRequest request{rtPos, bShowOSD};
+		SendMessageW(WM_BRIDGE_SEEK, 0, reinterpret_cast<LPARAM>(&request));
+		return;
+	}
 	const OAFilterState fs = GetMediaState();
 
 	if (rtPos < 0) {
@@ -17223,6 +17272,9 @@ void CMainFrame::SeekTo(REFERENCE_TIME rtPos, bool bShowOSD/* = true*/)
 	{
 		DisableABRepeat();
 	}
+	m_bridgeMemory.stopped = false;
+	m_bridgeMemory.degradedPosition = false;
+	SaveBridgePlaybackMemory(true);
 
 	OnTimer(TIMER_STREAMPOSPOLLER);
 	OnTimer(TIMER_STREAMPOSPOLLER2);
@@ -17996,6 +18048,7 @@ void CMainFrame::OpenMedia(std::unique_ptr<OpenMediaData> pOMD)
 	m_bDelaySetOutputRect = true;
 
 	SetLoadState(MLS_LOADING);
+	BeginBridgePlaybackMemory(pFileData);
 	m_YtDlp.ResetExtractionCancellation();
 	if (!m_bridgeQualitySwitch.pending) m_bridgeCacheBypassSession = false;
 
@@ -18042,6 +18095,11 @@ bool CMainFrame::DisplayChange()
 void CMainFrame::CloseMedia(BOOL bNextIsOpened/* = FALSE*/)
 {
 	CancelBridgeHold();
+	SaveBridgePlaybackMemory(true);
+	if (!m_bridgeQualitySwitch.internalClose) {
+		m_bridgeMemory.ready = false;
+		if (m_bridgeMemory.supported) AfxGetAppSettings().fEnableSubtitles = m_bridgeMemory.globalSubtitles;
+	}
 	CloseBridgeSubtitles();
 	CloseBridgeSession();
 	m_YtDlp.CancelExtraction();
@@ -18244,6 +18302,7 @@ void CMainFrame::SetPlayState(MPC_PLAYSTATE iState)
 	UpdateThumbnailClip();
 
 	if (iState == PS_PAUSE) {
+		SaveBridgePlaybackMemory(true);
 		auto& s = AfxGetAppSettings();
 		if (s.bKeepHistory) {
 			if ((GetPlaybackMode() == PM_FILE && s.bRememberFilePos)
@@ -21285,6 +21344,7 @@ void CMainFrame::SaveHistory()
 	auto& historyFile = AfxGetMyApp()->m_HistoryFile;
 
 	if (GetPlaybackMode() == PM_FILE) {
+		if (m_bridgeMemory.supported) return; // new store owns supported media's position and settings
 		if (s.bRememberFilePos && !m_bGraphEventComplete) {
 			REFERENCE_TIME rtDur;
 			m_pMS->GetDuration(&rtDur);

@@ -98,8 +98,14 @@
     <ClCompile Include="bridge\MediaCache.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="bridge\MediaTimeIndex.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="bridge\DualSubtitleProvider.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="bridge\MatroskaSubtitleReader.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="bridge\MatroskaSubtitleSource.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="bridge\SubtitleFilePreparation.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="bridge\SubtitleTranslation.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\PlayerSubtitleAdapter.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\PlayerQualityAdapter.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
+    <ClCompile Include="bridge\PlaybackMemory.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="bridge\PlayerPlaybackMemoryAdapter.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\CacheSettingsDialog.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions></ClCompile>
     <ClCompile Include="bridge\OnlineVideoDialog.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -255,7 +261,14 @@
     <ClInclude Include="bridge\ShortcutProfile.h" />
     <ClInclude Include="bridge\OnlineUrl.h" />
     <ClInclude Include="bridge\DualSubtitleModel.h" />
+    <ClInclude Include="bridge\SubtitleCatalog.h" />
+    <ClInclude Include="bridge\SubtitleTextSource.h" />
+    <ClInclude Include="bridge\PlaybackMemory.h" />
     <ClInclude Include="bridge\DualSubtitleProvider.h" />
+    <ClInclude Include="bridge\MatroskaSubtitleReader.h" />
+    <ClInclude Include="bridge\MatroskaSubtitleSource.h" />
+    <ClInclude Include="bridge\SubtitleFilePreparation.h" />
+    <ClInclude Include="bridge\SubtitleTranslation.h" />
     <ClInclude Include="bridge\MediaCache.h" />
     <ClInclude Include="bridge\MediaCacheModel.h" />
     <ClInclude Include="bridge\QualityModel.h" />

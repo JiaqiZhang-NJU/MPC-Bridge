@@ -57,12 +57,22 @@ def seek(port,ms):
     request(port,'/command.html?wm_command=-1&position='+urllib.parse.quote(f'00:00:{ms//1000:02d}.{ms%1000:03d}'))
     wait(port,lambda s:abs(int(s['position'])-ms)<150);time.sleep(.5)
 
-def run(renderer):
+def run(renderer, ass=False):
     folder=ROOT/'_bin/bridge/dual-qa'/f'vr{renderer}-{time.time_ns()}';folder.mkdir(parents=True)
     movie=folder/'fixture.avi';video(movie)
     primary=folder/'原文 a.srt';secondary=folder/'译文 b.srt'
     primary.write_text('1\n00:00:01,000 --> 00:00:08,000\nA1: Learn languages\nwith two subtitle files.\n\n2\n00:00:14,000 --> 00:00:18,000\nA2: Another sentence.\n',encoding='utf-8-sig')
     secondary.write_text('1\n00:00:02,000 --> 00:00:04,000\nB1: 第一段译文\n\n2\n00:00:04,000 --> 00:00:09,000\nB2: 第二段译文\n不同的分段也能对照\n',encoding='utf-16')
+    if ass:
+        header = '[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n'
+        primary = folder/'原文 a.ass'; secondary = folder/'译文 b.ass'
+        primary.write_text(header +
+            'Dialogue: 0,0:00:01.00,0:00:08.00,Default,Speaker,0,0,0,,{\\pos(20,20)}A1: Learn languages\\Nwith two subtitle files.\n' +
+            'Dialogue: 1,0:00:14.00,0:00:18.00,Default,,0,0,0,,A2: Another sentence.\n' +
+            'Dialogue: 0,0:00:10.00,0:00:12.00,Default,,0,0,0,,{\\p1}m 0 0 l 300 300\n', encoding='utf-8-sig')
+        secondary.write_text(header +
+            'Dialogue: 0,0:00:02.00,0:00:04.00,Default,,0,0,0,,{\\pos(600,20)}B1: 第一段译文\n' +
+            'Dialogue: 0,0:00:04.00,0:00:09.00,Default,,0,0,0,,B2: 第二段译文\\N不同的分段也能对照\n', encoding='utf-16')
     player=folder/'subtitle-player.exe';shutil.copy2(ROOT/'_bin/mpc-be_x64/mpc-be64.exe',player)
     with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
     player.with_suffix('.ini').write_text(f'[Audio]\nMute=1\n[Video]\nVideoRenderer={renderer}\n[Settings]\nSnapShotSubtitles=1\n[WebServer]\nEnableWebServer=1\nLocalhostOnly=1\nEnablePreview=1\nPort={port}\n',encoding='utf-16')
@@ -120,7 +130,7 @@ def run(renderer):
         dlg=dialog(hwnd);edit(dlg,606,-500);click(dlg,613);click(dlg,614);click(dlg,2)
         seek(port,3000);picture(port,folder,'swapped')
         dlg=dialog(hwnd);click(dlg,615);seek(port,3000);picture(port,folder,'secondary-disabled')
-        print(f'PASS renderer {renderer}: real dual SRT pictures, UTF encodings, multiple lines, gaps, independent delay, layouts, swap; {folder}',flush=True)
+        print(f'PASS renderer {renderer}, ASS={ass}: real dual subtitle pictures, UTF encodings, multiple lines, gaps, independent delay, layouts, swap; {folder}',flush=True)
     finally:
         if hwnd:user.PostMessageW(hwnd,0x111,816,0)
         try:process.wait(10)
@@ -151,4 +161,4 @@ if __name__=='__main__':
     import sys
     if '--disabled' in sys.argv:run_disabled()
     else:
-        for vr in ([int(sys.argv[1])] if len(sys.argv)>1 and sys.argv[1].isdigit() else [3,5]):run(vr)
+        for vr in ([int(sys.argv[1])] if len(sys.argv)>1 and sys.argv[1].isdigit() else [3,5]):run(vr, '--ass' in sys.argv)

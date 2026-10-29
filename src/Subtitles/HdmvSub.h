@@ -78,6 +78,7 @@ public:
 	};
 
 	CHdmvSub();
+	SIZE GetCanvasSize() const { return {m_VideoDescriptor.nVideoWidth, m_VideoDescriptor.nVideoHeight}; }
 	~CHdmvSub();
 
 	virtual POSITION       GetStartPosition(REFERENCE_TIME rt, double fps, bool CleanOld = false);

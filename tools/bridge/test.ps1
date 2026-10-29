@@ -26,3 +26,18 @@ if ($LASTEXITCODE -ne 0) { throw 'Cache/quality model tests failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Dual subtitle model compilation failed.' }
 & (Join-Path $testOutput 'dual-subtitle-tests.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Dual subtitle model tests failed.' }
+& $Compiler -std=c++17 -Wall -Wextra -Werror -Wno-error=class-memaccess -pedantic -I (Join-Path $repoRoot 'src') `
+    (Join-Path $repoRoot 'src/apps/mplayerc/bridge/SubtitleTranslation.cpp') `
+    (Join-Path $repoRoot 'tests/bridge/subtitle_translation_tests.cpp') `
+    -static-libgcc -static-libstdc++ -o (Join-Path $testOutput 'subtitle-translation-tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Subtitle translation compilation failed.' }
+& (Join-Path $testOutput 'subtitle-translation-tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Subtitle translation protocol tests failed.' }
+
+& $Compiler -std=c++17 -Wall -Wextra -Werror -Wno-error=class-memaccess -pedantic -I (Join-Path $repoRoot 'src') `
+    (Join-Path $repoRoot 'src/apps/mplayerc/bridge/PlaybackMemory.cpp') `
+    (Join-Path $repoRoot 'tests/bridge/playback_memory_tests.cpp') `
+    -static-libgcc -static-libstdc++ -o (Join-Path $testOutput 'playback-memory-tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Playback memory compilation failed.' }
+& (Join-Path $testOutput 'playback-memory-tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Playback memory tests failed.' }

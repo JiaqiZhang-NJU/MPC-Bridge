@@ -105,6 +105,7 @@ public:
 public:
 	CStringW        mAuthor;
 	CStringW        mTitle;
+	CStringW        mResolvedId;
 	CStringW        mDescription;
 	SYSTEMTIME      mTime = { 0 };
 	REFERENCE_TIME  mDuration = 0;

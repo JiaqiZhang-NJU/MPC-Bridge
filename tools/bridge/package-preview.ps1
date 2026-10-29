@@ -1,6 +1,6 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)][string]$Parser,
-    [string]$Version = '0.2.0-preview.2'
+    [string]$Version = '0.2.1-preview.1'
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -34,6 +34,7 @@ Copy-Item (Join-Path $repoRoot 'bridge/README.md') (Join-Path $packageDirectory 
 Copy-Item (Join-Path $repoRoot 'bridge/DEVELOPMENT.md') $packageDirectory
 Copy-Item (Join-Path $repoRoot 'bridge/CACHE-VALIDATION.md') $packageDirectory
 Copy-Item (Join-Path $repoRoot 'bridge/DUAL-SUBTITLES.md') $packageDirectory
+Copy-Item (Join-Path $repoRoot 'bridge/PLAYBACK-MEMORY.md') $packageDirectory
 Copy-Item (Join-Path $repoRoot 'bridge/PREVIEW-README.txt') (Join-Path $packageDirectory 'README.txt')
 $ini = @'
 ; MPC-Bridge portable preview

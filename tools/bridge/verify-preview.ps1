@@ -1,4 +1,4 @@
-﻿param([string]$Version = "0.2.0-preview.2")
+param([string]$Version = "0.2.1-preview.1")
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid package version.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -19,6 +19,11 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $sourceZip = [IO.Compression.ZipFile]::OpenRead($sourceArchive)
 try {
     $requiredSources = @('src/apps/mplayerc/bridge/PlayerShortcutAdapter.cpp','src/apps/mplayerc/bridge/HoldGesture.h','src/ExtLib/BaseClasses/streams.h','src/ExtLib/rapidjson/include/rapidjson/document.h','src/ExtLib/vvdec/vvdec/CMakeLists.txt')
+    $requiredSources += @('src/apps/mplayerc/bridge/PlaybackMemory.cpp',
+        'src/apps/mplayerc/bridge/MatroskaSubtitleReader.cpp',
+        'src/apps/mplayerc/bridge/SubtitleFilePreparation.cpp',
+        'src/apps/mplayerc/bridge/SubtitleTranslation.cpp',
+        'tests/bridge/subtitle_text_native_tests.cpp')
     if ($Version -match '^0\.2\.') { $requiredSources += @('src/apps/mplayerc/bridge/MediaCache.cpp','src/apps/mplayerc/bridge/PlayerQualityAdapter.cpp','tests/bridge/cache_integration.py') }
     if ($Version -match '^0\.2\.' -and $Version -notmatch '-dev\.') { $requiredSources += @('src/apps/mplayerc/bridge/DualSubtitleProvider.cpp','tests/bridge/dual_subtitle_playback.py') }
     foreach ($required in $requiredSources) {

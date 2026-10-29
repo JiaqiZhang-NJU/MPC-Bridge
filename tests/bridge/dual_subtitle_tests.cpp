@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "apps/mplayerc/bridge/DualSubtitleModel.h"
+#include "apps/mplayerc/bridge/SubtitleCatalog.h"
 #include <cassert>
 #include <iostream>
 #include <utility>
@@ -36,5 +37,40 @@ int main() {
     std::swap(state.slots[0],state.slots[1]);
     assert(state.slots[1].embeddedTrack==1 && state.slots[1].embeddedKey==L"srt|Chinese");
     assert(state.slots[0].embeddedTrack==-1 && state.slots[0].path==L"translation.srt");
+    assert(SubtitleFileFormat(L"C:/movies/subtitles.EN.ASS")==SubtitleTextFormat::Ass);
+    assert(SubtitleFileFormat(L"字幕.ssa")==SubtitleTextFormat::Ssa);
+    assert(SubtitleFileFormat(L"captions.vtt")==SubtitleTextFormat::Vtt);
+    assert(SubtitleFileFormat(L"captions.srt")==SubtitleTextFormat::Srt);
+    assert(SubtitleFileFormat(L"captions.srt.exe")==SubtitleTextFormat::Unsupported);
+    assert(SubtitleFileFormat(L"C:/folder.ass/no-extension")==SubtitleTextFormat::Unsupported);
+    assert(SubtitleFileFormat(L"")==SubtitleTextFormat::Unsupported);
+    assert(SubtitleReadingText(L"{\\pos(300,50)\\c&HFF&}Hello\\N世界")==L"Hello\n世界");
+    assert(SubtitleReadingText(L"{\\p1}m 0 0 l 80 80{\\p0}Dialogue")==L"Dialogue");
+    assert(SubtitleReadingText(L"Text{\\p2}m 0 0 l 80 80")==L"Text");
+    assert(SubtitleReadingText(L"{\\p2}m 0 0{\\rDefault}Reset")==L"Reset");
+    assert(SubtitleReadingText(L"{\\p2}m 0 0{\\p-1}Reset")==L"Reset");
+    assert(SubtitleReadingText(L"{\\pbo10\\pos(1,2)}Text")==L"Text");
+    assert(SubtitleReadingText(L"{\\t(0,100,\\p1)}Text")==L"Text");
+    assert(SubtitleReadingText(L"{\\p0\\t(0,100,\\p1)}Text")==L"Text");
+    assert(SubtitleReadingText(L"{\\p1}m 0 0{\\p0000}Text")==L"Text");
+    assert(SubtitleReadingText(L"{\\p100000000000000000000000}m 0 0").empty());
+    assert(SubtitleReadingText(L"{\\i1}Hi{\\i0}\\hthere\\nagain")==L"Hi there\nagain");
+    assert(SubtitleReadingText(L"<i>Hi</i>")==L"<i>Hi</i>");
+    assert(SubtitleReadingText(L"broken {tag")==L"broken {tag");
+    assert(SubtitleReadingText(L"{comment}Text")==L"Text");
+    assert(SubtitleReadingText(L"Set {a,b}",false)==L"Set {a,b}");
+    assert(SubtitleReadingText(L"{\\pos(10,20)}Text",false)==L"Text");
+    assert(SubtitleReadingText(L"").empty());
+    auto bitmap = FitSubtitleBitmap(400, 100, 640, 54, 100);
+    assert(bitmap.width == 216 && bitmap.height == 54);
+    bitmap = FitSubtitleBitmap(400, 100, 640, 54, 50);
+    assert(bitmap.width == 200 && bitmap.height == 50);
+    bitmap = FitSubtitleBitmap(4000, 1000, 640, 54, 200);
+    assert(bitmap.width <= 640 && bitmap.height == 54);
+    assert(FitSubtitleBitmap(0, 100, 640, 54, 100).width == 0);
+    assert(FitSubtitleBitmap(100, 100, 640, 0, 100).height == 0);
+    state.slots[0].fontSize = 20; state.slots[0].bitmapScale = 24;
+    assert(!ValidSubtitleSlot(state.slots[0]));
+    state.slots[0].bitmapScale = 200; assert(ValidSubtitleSlot(state.slots[0]));
     std::cout<<"PASS: subtitle offsets, overflow, empty intervals, exchange, validation and disjoint layouts\n";
 }

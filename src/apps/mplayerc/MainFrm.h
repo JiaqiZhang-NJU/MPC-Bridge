@@ -43,6 +43,8 @@
 #include "bridge/HoldGesture.h"
 #include "bridge/MediaCache.h"
 #include "bridge/DualSubtitleProvider.h"
+#include "bridge/SubtitleFilePreparation.h"
+#include "bridge/PlaybackMemory.h"
 #include <mutex>
 #include "SvgHelper.h"
 #include "HistoryDlg.h"
@@ -232,17 +234,23 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	CComPtr<ISubStream> m_pCurrentSubStream;
 	Bridge::DualSubtitleState m_bridgeSubtitles;
 	std::shared_ptr<CSimpleTextSubtitle> m_bridgeSubtitleSources[2];
+	std::unique_ptr<Bridge::SubtitleFilePreparation> m_bridgeSubtitlePreparation;
+	CComPtr<ISubStream> m_bridgeSubtitleIndependent[2];
+	bool m_bridgeSubtitlePrepared[2] = {}, m_bridgeSubtitlePreparationPublished = false;
+	int m_bridgeSubtitleRefreshFrames = 0;
+	void PrepareBridgeSubtitleFile();
+	void PollBridgeSubtitlePreparation();
 	CComPtr<ISubStream> m_bridgeSubtitleStreams[2];
 	std::atomic<DWORD_PTR> m_bridgeSubtitleObserved[2]{};
 	std::atomic<bool> m_bridgeSubtitleRefreshQueued{false};
-	struct BridgeEmbeddedSubtitle { CComPtr<ISubStream> stream; std::wstring name, key; };
+	struct BridgeEmbeddedSubtitle { CComPtr<ISubStream> stream; std::wstring name, key; bool readable = false; };
 	std::vector<BridgeEmbeddedSubtitle> GetBridgeEmbeddedSubtitles();
 	void DetachBridgeSubtitles();
 	CComPtr<CDualSubtitleProvider> m_bridgeSubtitleProvider;
 	bool m_bridgeSubtitleActive = false;
 	uint64_t m_bridgeSubtitleFileTokens[2] = {};
 	bool ApplyBridgeSubtitles(const Bridge::DualSubtitleState& requested, CString& error, bool activate = true);
-	void AttachBridgeSubtitles(ISubStream* selected);
+	bool AttachBridgeSubtitles(ISubStream* selected);
 	void CloseBridgeSubtitles();
 	void RefreshBridgeSubtitleFiles();
 	int GetBridgePrimarySubtitleDelay() const { return m_bridgeSubtitleActive ? m_bridgeSubtitles.slots[0].delayMs : m_pCAP ? m_pCAP->GetSubtitleDelay() : 0; }
@@ -325,6 +333,27 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	void AttachBridgeCache(OpenFileData& ofd);
 	void UpdateBridgeCache();
 	void CloseBridgeSession();
+	void BeginBridgePlaybackMemory(const OpenFileData* ofd);
+	void PrepareBridgePlaybackMemory(OpenFileData& ofd, const CStringW& source);
+	void RestoreBridgePlaybackMemory();
+	void SaveBridgePlaybackMemory(bool force = false);
+	void AddBridgeMemoryMenu(CMenu& root);
+	afx_msg void OnBridgeMemorySettings();
+	afx_msg void OnBridgeMemoryRestart();
+	afx_msg void OnBridgeMemoryClear();
+	afx_msg void OnUpdateBridgeMemory(CCmdUI* command);
+	afx_msg void OnBridgeMemorySave() { SaveBridgePlaybackMemory(true); }
+	afx_msg LRESULT OnBridgeSeek(WPARAM, LPARAM);
+	struct BridgePlaybackMemory {
+		Bridge::PlaybackMemoryRecord record;
+		std::wstring directory;
+		uint64_t session = 0, lastSave = 0;
+		REFERENCE_TIME explicitStart = INVALID_TIME;
+		bool supported = false, ready = false, applying = false, stopped = false;
+		bool found = false, degradedSubtitles = false, degradedAudio = false;
+		bool degradedPosition = false;
+		bool globalSubtitles = true;
+	} m_bridgeMemory;
 	Bridge::CacheStatus GetBridgeCacheStatus() { std::lock_guard<std::mutex> lock(m_bridgeCacheMutex); return m_bridgeCacheStatus; }
 	afx_msg void OnBridgeQualitySelected(UINT id);
 	afx_msg void OnUpdateBridgeQuality(CCmdUI* command);

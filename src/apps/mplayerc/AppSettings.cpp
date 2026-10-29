@@ -497,7 +497,7 @@ void CAppSettings::ResetSettings()
 
 	bKeepHistory = true;
 	nHistoryEntriesMax = 200;
-	bRememberFilePos = false;
+	bRememberFilePos = true;
 	bRememberDVDPos = false;
 
 	bRecentFilesMenuEllipsis = true;
@@ -896,6 +896,7 @@ void CAppSettings::LoadSettings(bool bForce/* = false*/)
 	profile.ReadBool(IDS_R_SETTINGS, IDS_RS_KEEPHISTORY, bKeepHistory);
 	profile.ReadUInt(IDS_R_SETTINGS, IDS_RS_HISTORY_ENTRIES_MAX, nHistoryEntriesMax, 100, 900);
 	profile.ReadBool(IDS_R_SETTINGS, IDS_RS_REMEMBER_FILEPOS, bRememberFilePos);
+	profile.ReadBool(IDS_R_SETTINGS, L"RememberVideoSettings", bRememberVideoSettings);
 	profile.ReadBool(IDS_R_SETTINGS, IDS_RS_REMEMBER_DVDPOS, bRememberDVDPos);
 
 	profile.ReadInt(IDS_R_SETTINGS, IDS_RS_RECENT_FILES_NUMBER, iRecentFilesNumber, APP_RECENTFILES_MIN, APP_RECENTFILES_MAX);
@@ -1638,6 +1639,7 @@ void CAppSettings::SaveSettings()
 	profile.WriteBool(IDS_R_SETTINGS, IDS_RS_KEEPHISTORY, bKeepHistory);
 	profile.WriteUInt(IDS_R_SETTINGS, IDS_RS_HISTORY_ENTRIES_MAX, nHistoryEntriesMax);
 	profile.WriteBool(IDS_R_SETTINGS, IDS_RS_REMEMBER_FILEPOS, bRememberFilePos);
+	profile.WriteBool(IDS_R_SETTINGS, L"RememberVideoSettings", bRememberVideoSettings);
 	profile.WriteBool(IDS_R_SETTINGS, IDS_RS_REMEMBER_DVDPOS, bRememberDVDPos);
 
 	profile.WriteInt(IDS_R_SETTINGS, IDS_RS_RECENT_FILES_NUMBER, iRecentFilesNumber);

@@ -26,11 +26,12 @@
 #include "SubtitleHelpers.h"
 #include "RenderedHdmvSubtitle.h"
 
-CRenderedHdmvSubtitle::CRenderedHdmvSubtitle(CCritSec* pLock, SUBTITLE_TYPE nType, const CString& name, LCID lcid)
+CRenderedHdmvSubtitle::CRenderedHdmvSubtitle(CCritSec* pLock, SUBTITLE_TYPE nType, const CString& name, LCID lcid, bool retainHistory)
 	: CSubPicProviderImpl(pLock)
 	, m_name(name)
 	, m_lcid(lcid)
 	, m_nType(nType)
+	, m_bLoadFromFile(retainHistory)
 {
 	switch (m_nType) {
 		case ST_DVB :
@@ -129,6 +130,13 @@ STDMETHODIMP CRenderedHdmvSubtitle::Render(SubPicDesc& spd, REFERENCE_TIME rt, d
 	}
 
 	return hr;
+}
+
+SIZE CRenderedHdmvSubtitle::GetCanvasSize()
+{
+	CAutoLock cAutoLock(&m_csCritSec);
+	const auto pgs = dynamic_cast<CHdmvSub*>(m_pSub);
+	return pgs ? pgs->GetCanvasSize() : SIZE{};
 }
 
 STDMETHODIMP CRenderedHdmvSubtitle::GetTextureSize(POSITION pos, SIZE& MaxTextureSize, SIZE& VideoSize, POINT& VideoTopLeft)

@@ -794,6 +794,7 @@ void YT_DLP::SetSubtitles(const rapidjson::Document& doc)
 void YT_DLP::SetInfo(const rapidjson::Document& doc)
 {
 	getJsonValue(doc, "title", mTitle);
+	getJsonValue(doc, "id", mResolvedId);
 
 	getJsonValue(doc, "uploader", mAuthor);
 
@@ -1066,6 +1067,7 @@ void YT_DLP::Clear()
 {
 	mAuthor.Empty();
 	mTitle.Empty();
+	mResolvedId.Empty();
 	mDescription.Empty();
 	mTime = {};
 	mDuration = 0;

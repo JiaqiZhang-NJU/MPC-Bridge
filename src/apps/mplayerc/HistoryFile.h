@@ -60,7 +60,8 @@ struct SessionInfo {
 			&& memcmp(&DVDTimecode, &b.DVDTimecode, sizeof(DVD_HMSF_TIMECODE)) == 0
 			&& DVDState == b.DVDState
 			&& Position == b.Position
-			&& AudioNum == b.SubtitleNum
+			&& AudioNum == b.AudioNum
+			&& SubtitleNum == b.SubtitleNum
 			&& AudioPath.CompareNoCase(b.AudioPath) == 0
 			&& SubtitlePath.CompareNoCase(b.SubtitlePath) == 0;
 		return ret;
@@ -121,6 +122,7 @@ private:
 	bool WriteFile();
 
 public:
+	bool Clear();
 	bool OpenSessionInfo(SessionInfo& sesInfo, bool bReadPos); // Read or create an entry in the history file
 	void SaveSessionInfo(const SessionInfo& sesInfo);
 	bool DeleteSessions(const std::list<SessionInfo>& sessions);

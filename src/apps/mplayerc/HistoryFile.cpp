@@ -20,6 +20,7 @@
 
 #include "stdafx.h"
 #include "HistoryFile.h"
+#include "bridge/PlaybackMemory.h"
 #include "DSUtil/CryptoUtils.h"
 
 //
@@ -99,6 +100,9 @@ void CMpcLstFile::SetFilename(const CStringW& filename)
 void CMpcLstFile::SetMaxCount(unsigned maxcount)
 {
 	m_maxCount = std::clamp(maxcount, 10u, 999u);
+	if (dynamic_cast<CHistoryFile*>(this) && !m_filename.IsEmpty() && AfxGetAppSettings().bKeepHistory) {
+		Bridge::MemoryStore().Trim(m_filename.Left(m_filename.ReverseFind('\\') + 1).GetString(), m_maxCount);
+	}
 }
 
 //
@@ -210,6 +214,20 @@ bool CSessionFile::ReadFile()
 // CHistoryFile
 //
 
+namespace {
+std::string MemoryHistorySource(const CStringW& path) {
+    return Bridge::MemorySource(path.GetString());
+}
+}
+
+bool CHistoryFile::Clear() {
+    const auto directory = m_filename.Left(m_filename.ReverseFind('\\') + 1);
+    Bridge::MemoryStore().TakeError();
+    Bridge::MemoryStore().Erase(directory.GetString());
+    if (!Bridge::MemoryStore().Flush() || Bridge::MemoryStore().TakeError()) return false;
+    return CMpcLstFile::Clear();
+}
+
 void CHistoryFile::IntAddEntry(const SessionInfo& sesInfo)
 {
 	if (sesInfo.Path.GetLength()) {
@@ -233,7 +251,7 @@ std::list<SessionInfo>::iterator CHistoryFile::FindSessionInfo(const SessionInfo
 	}
 	else if (sesInfo.Path.GetLength()) {
 		for (auto it = begin; it != m_SessionInfos.end(); ++it) {
-			if (sesInfo.Path.CompareNoCase((*it).Path) == 0) {
+			if ((PathIsURLW(sesInfo.Path) ? sesInfo.Path.Compare((*it).Path) : sesInfo.Path.CompareNoCase((*it).Path)) == 0) {
 				return it;
 			}
 		}
@@ -401,6 +419,13 @@ void CHistoryFile::SaveSessionInfo(const SessionInfo& sesInfo)
 bool CHistoryFile::DeleteSessions(const std::list<SessionInfo>& sessions)
 {
 	std::lock_guard<std::mutex> lock(m_Mutex);
+	const auto directory = m_filename.Left(m_filename.ReverseFind('\\') + 1);
+	Bridge::MemoryStore().TakeError();
+	for (const auto& session : sessions) {
+		const auto source = MemoryHistorySource(session.Path);
+		if (!source.empty()) Bridge::MemoryStore().Erase(directory.GetString(), source);
+	}
+	if (!Bridge::MemoryStore().Flush() || Bridge::MemoryStore().TakeError()) return false;
 
 	if (!ReadFile()) {
 		return false;
