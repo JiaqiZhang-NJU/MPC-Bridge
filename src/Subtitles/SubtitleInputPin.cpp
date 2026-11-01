@@ -310,6 +310,15 @@ STDMETHODIMP CSubtitleInputPin::Receive(IMediaSample* pSample)
 
 	REFERENCE_TIME tStart, tStop;
 	hr = pSample->GetTime(&tStart, &tStop);
+	// Native pins receive stream-relative times divided by playback rate.
+	// Combined subtitles share the absolute media clock with external text and
+	// independently prepared tracks. Convert once at receipt, before queuing;
+	// decoding may happen after another NewSegment changes the pin's rate.
+	const auto provider = dynamic_cast<CSubPicProviderImpl*>(m_pSubStream.p);
+	if (provider && provider->UsesMediaTimeline()) {
+		if ((hr == S_OK || hr == VFW_S_NO_STOP_TIME) && tStart != INVALID_TIME) tStart = REFERENCE_TIME(tStart * m_dRate);
+		if (hr == S_OK && tStop != INVALID_TIME) tStop = REFERENCE_TIME(tStop * m_dRate);
+	}
 
 	switch (hr) {
 		case S_OK:

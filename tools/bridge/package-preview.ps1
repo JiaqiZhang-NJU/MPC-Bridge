@@ -1,6 +1,6 @@
 ﻿param(
     [Parameter(Mandatory = $true)][string]$Parser,
-    [string]$Version = '0.2.1-preview.1'
+    [string]$Version = '0.2.1-preview.2'
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem

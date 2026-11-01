@@ -24,6 +24,9 @@
 #include "SubPic/XySubPicQueueImpl.h"
 #include "SubPic/XySubPicProvider.h"
 #include <dxva2api.h>
+#ifdef MPC_BRIDGE_SUBTITLE_PROBE
+#include "SubtitleFrameProbe.h"
+#endif
 
 CAllocatorPresenterImpl::CAllocatorPresenterImpl(HWND hWnd, HRESULT& hr, CString *_pError)
 	: CUnknown(L"CAllocatorPresenterImpl", nullptr)
@@ -91,8 +94,9 @@ void CAllocatorPresenterImpl::InitMaxSubtitleTextureSize(const int maxWidth, con
 HRESULT CAllocatorPresenterImpl::AlphaBltSubPic(const CRect& windowRect, const CRect& videoRect, int xOffsetInPixels/* = 0*/)
 {
 	if (m_pSubPicQueue) {
+		const REFERENCE_TIME frameTime = m_rtNow;
 		CComPtr<ISubPic> pSubPic;
-		if (m_pSubPicQueue->LookupSubPic(m_rtNow, !IsRendering(), pSubPic)) {
+		if (m_pSubPicQueue->LookupSubPic(frameTime, !IsRendering(), pSubPic)) {
 
 			CRect rcWindow(windowRect);
 			CRect rcVideo(videoRect);
@@ -121,8 +125,15 @@ HRESULT CAllocatorPresenterImpl::AlphaBltSubPic(const CRect& windowRect, const C
 
 			}
 
-			return AlphaBlt(rcWindow, rcVideo, pSubPic, nullptr, xOffsetInPixels, m_Stereo3DSets.iMode == SUBPIC_STEREO_NONE && m_Stereo3DSets.iTransform != STEREO3D_HalfOverUnder_to_Interlace);
+			const auto hr=AlphaBlt(rcWindow, rcVideo, pSubPic, nullptr, xOffsetInPixels, m_Stereo3DSets.iMode == SUBPIC_STEREO_NONE && m_Stereo3DSets.iTransform != STEREO3D_HalfOverUnder_to_Interlace);
+#ifdef MPC_BRIDGE_SUBTITLE_PROBE
+			ProbeSubtitleFrame(m_pSubPicQueue,pSubPic,frameTime,hr,windowRect);
+#endif
+			return hr;
 		}
+#ifdef MPC_BRIDGE_SUBTITLE_PROBE
+		ProbeSubtitleFrame(m_pSubPicQueue,nullptr,frameTime,E_FAIL,windowRect);
+#endif
 	}
 
 	return E_FAIL;

@@ -146,6 +146,46 @@ static bool PictureDecodeAndSeek() {
             }
         }
     }
+    source->ParseSample(clear.data(),static_cast<long>(clear.size()),40000000,40000001);
+    source->SetMediaTimeline(true);
+    source->PrepareRateChange(30000000,3);
+    source->NewSegment(30000000,240000000,3);
+    if(!source->GetStartPosition(30000000,25)) return false;
+    // Redelivery replaces the retained display set; alpha edges must not be
+    // composited twice, and a subsequent real clear must still end the cue.
+    source->ParseSample(packet.data(),static_cast<long>(packet.size()),20000000,40000000);
+    std::fill(pixels.begin(),pixels.end(),0xff000000u);
+    if(source->Render(surface,30000000,25,nativeBox)!=S_OK) return false;
+    at=0;
+    for(int y=nativeBox.top;y<nativeBox.bottom;++y) for(int x=nativeBox.left;x<nativeBox.right;++x)
+        if(pixels[y*640+x]!=reference[at++]) return false;
+    source->ParseSample(clear.data(),static_cast<long>(clear.size()),40000000,40000001);
+    if(source->GetStartPosition(50000000,25)) return false;
+    CComPtr<CDualSubtitleProvider> complete=new CDualSubtitleProvider(&lock,settings,text,streams,STSStyle(),true);
+    auto interval=complete.p->GetStartPosition(30000000,25);
+    if(!interval || complete.p->GetStart(interval,25)!=20000000 || complete.p->GetStop(interval,25)!=40000000) return false;
+    auto empty=complete.p->GetStartPosition(50000000,25);
+    if(!empty || complete.p->GetStart(empty,25)!=40000000 || complete.p->GetNext(empty)) return false;
+    settings.slots[0].delayMs=-3000;
+    CComPtr<CDualSubtitleProvider> shifted=new CDualSubtitleProvider(&lock,settings,text,streams,STSStyle(),true);
+    interval=shifted.p->GetStartPosition(0,25);
+    if(!interval || shifted.p->GetStart(interval,25)!=0 || shifted.p->GetStop(interval,25)!=10000000) return false;
+    settings.slots[0].delayMs=0;
+    CComPtr<CDualSubtitleProvider> live=new CDualSubtitleProvider(&lock,settings,text,streams,STSStyle());
+    CComPtr<ISubPicAllocator> allocator=new QualityAllocator;
+    HRESULT hr=S_OK;
+    CComPtr<ISubPicQueue> threaded=new CSubPicQueue(3,false,true,allocator,&hr);
+    threaded->SetSubPicProvider(live); threaded->SetFPS(25);
+    for(int n=0;n<8;++n) for(auto time : {30000000LL,50000000LL}) {
+        threaded->SetTime(time); if(n%2==0) threaded->Invalidate();
+        CComPtr<ISubPic> frame;
+        if(!threaded->LookupSubPic(time,frame) || !frame) { std::cerr<<"missing queued frame "<<time<<" round "<<n<<std::endl; return false; }
+        SubPicDesc desc{}; if(FAILED(frame->GetDesc(desc))) return false;
+        size_t visible=0;
+        for(int y=0;y<desc.h;++y) for(int x=0;x<desc.w;++x)
+            visible+=(reinterpret_cast<uint32_t*>(desc.bits+y*desc.pitch)[x]>>24)<255;
+        if((visible>0)!=(time==30000000)) { std::cerr<<"wrong queued frame "<<time<<" visible "<<visible<<" interval "<<frame->GetStart()<<","<<frame->GetStop()<<std::endl; return false; }
+    }
     return true;
 }
 

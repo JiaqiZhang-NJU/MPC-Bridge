@@ -3,7 +3,9 @@
 #include "MainFrm.h"
 #include "FullscreenWnd.h"
 #include "RateControl.h"
+#include "Subtitles/RenderedHdmvSubtitle.h"
 #include "DSUtil/text.h"
+#include "filters/renderer/VideoRenderers/Variables.h"
 #include <cmath>
 
 namespace {
@@ -122,13 +124,31 @@ bool CMainFrame::IsBridgePlaybackWindow(HWND window) const
 		|| (m_pFullscreenWnd && window == m_pFullscreenWnd->GetSafeHwnd());
 }
 
+HRESULT CMainFrame::SetBridgePlaybackRate(double rate)
+{
+	if (!m_pMS) return E_UNEXPECTED;
+	if (m_bridgeSubtitleActive && m_pCAP) {
+		// SetRate can publish NewSegment before replacing the displayed video
+		// sample. Its old timestamp must not be interpreted using the new rate
+		// and segment origin during the graph's synchronous redraws. Pin subtitle
+		// time to the media position until the next normal clock handoff.
+		REFERENCE_TIME now = 0;
+		if (SUCCEEDED(m_pMS->GetCurrentPosition(&now))) {
+			for(auto& stream:m_bridgeSubtitleStreams) if(auto picture=dynamic_cast<CRenderedHdmvSubtitle*>(stream.p)) picture->PrepareRateChange(now,rate);
+			g_bExternalSubtitleTime = true;
+			m_pCAP->SetTime(now);
+		}
+	}
+	return m_pMS->SetRate(rate);
+}
+
 void CMainFrame::CancelBridgeHold()
 {
 	KillTimer(TIMER_BRIDGE_HOLD);
 	m_bridgeHold.Cancel();
 	if (m_bridgeHoldRateActive) {
 		m_bridgeHoldRateActive = false;
-		if (m_pMS && SUCCEEDED(m_pMS->SetRate(m_bridgeHoldPreviousRate))) {
+		if (SUCCEEDED(SetBridgePlaybackRate(m_bridgeHoldPreviousRate))) {
 			m_PlaybackRate = m_bridgeHoldPreviousRate;
 		} else if (m_eMediaLoadState == MLS_LOADED) {
 			m_OSD.DisplayMessage(OSD_TOPRIGHT, ChineseUI() ? L"未能恢复播放速度。" : L"Could not restore playback speed.");
@@ -155,7 +175,7 @@ void CMainFrame::OnBridgeHoldTimer()
 	double previous = 1.0;
 	const double rate = m_bridgeHold.HeldBinding().hold->rate;
 	if (FAILED(m_pMS->GetRate(&previous)) || !std::isfinite(previous) || previous <= 0
-		|| FAILED(m_pMS->SetRate(rate))) {
+		|| FAILED(SetBridgePlaybackRate(rate))) {
 		CancelBridgeHold();
 		m_OSD.DisplayMessage(OSD_TOPRIGHT, ChineseUI() ? L"此视频不支持临时加速。" : L"Temporary speed is unsupported for this video.");
 		return;
@@ -237,7 +257,7 @@ void CMainFrame::ExecuteBridgeBinding(const Bridge::Binding& binding)
 		CancelBridgeHold();
 		if (!liveSource && m_pMS) {
 			const double rate = std::clamp(m_PlaybackRate + binding.value, 0.25, 4.0);
-			if (SUCCEEDED(m_pMS->SetRate(rate))) {
+			if (SUCCEEDED(SetBridgePlaybackRate(rate))) {
 				m_PlaybackRate = rate;
 				CString text;
 				text.Format(ResStr(IDS_OSD_SPEED), Rate2String(rate));

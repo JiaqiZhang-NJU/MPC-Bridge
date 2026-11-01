@@ -22,15 +22,20 @@
 #pragma once
 
 #include "ISubPic.h"
+#include <atomic>
 
 class CSubPicProviderImpl : public CUnknown, public ISubPicProvider
 {
 protected:
 	CCritSec* m_pLock;
+	std::atomic<bool> m_mediaTimeline{false};
 
 public:
 	CSubPicProviderImpl(CCritSec* pLock);
 	virtual ~CSubPicProviderImpl();
+	void SetMediaTimeline(bool enabled) { m_mediaTimeline = enabled; }
+	bool UsesMediaTimeline() const { return m_mediaTimeline.load(); }
+	virtual bool RenderOnQueueMiss() const { return false; }
 
 	DECLARE_IUNKNOWN;
 	STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void** ppv);

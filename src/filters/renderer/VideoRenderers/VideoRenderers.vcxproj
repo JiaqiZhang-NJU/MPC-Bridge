@@ -49,6 +49,11 @@
       <Command>..\..\..\..\update_revision.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(BridgeSubtitleProbe)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>MPC_BRIDGE_SUBTITLE_PROBE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AllocatorCommon.cpp" />
     <ClCompile Include="CPUUsage.cpp" />
@@ -103,6 +108,7 @@
     <ClInclude Include="PixelShaderCompiler.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="AllocatorPresenterImpl.h" />
+    <ClInclude Include="SubtitleFrameProbe.h" />
     <ClInclude Include="SyncRenderer.h" />
     <ClInclude Include="Utils.h" />
     <ClInclude Include="Variables.h" />

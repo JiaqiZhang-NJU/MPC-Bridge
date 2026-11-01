@@ -247,10 +247,10 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	std::vector<BridgeEmbeddedSubtitle> GetBridgeEmbeddedSubtitles();
 	void DetachBridgeSubtitles();
 	CComPtr<CDualSubtitleProvider> m_bridgeSubtitleProvider;
-	bool m_bridgeSubtitleActive = false;
+	std::atomic<bool> m_bridgeSubtitleActive{false};
 	uint64_t m_bridgeSubtitleFileTokens[2] = {};
 	bool ApplyBridgeSubtitles(const Bridge::DualSubtitleState& requested, CString& error, bool activate = true);
-	bool AttachBridgeSubtitles(ISubStream* selected);
+	bool AttachBridgeSubtitles(ISubStream* selected, bool rebuild = false);
 	void CloseBridgeSubtitles();
 	void RefreshBridgeSubtitleFiles();
 	int GetBridgePrimarySubtitleDelay() const { return m_bridgeSubtitleActive ? m_bridgeSubtitles.slots[0].delayMs : m_pCAP ? m_pCAP->GetSubtitleDelay() : 0; }
@@ -324,6 +324,7 @@ class CMainFrame : public CFrameWnd, public CDropTarget, public CDPI
 	bool IsBridgePlaybackWindow(HWND window) const;
 	void ExecuteBridgeBinding(const Bridge::Binding& binding);
 	void CancelBridgeHold();
+	HRESULT SetBridgePlaybackRate(double rate);
 	void OnBridgeHoldTimer();
 	void ShowBridgeOnlineQuality();
 	void AddBridgeQualityMenu(CMenu& root);

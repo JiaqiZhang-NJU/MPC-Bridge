@@ -78,6 +78,7 @@ class CDX11SubPicAllocator : public CSubPicAllocatorImpl, public CCritSec
 
 public:
 	inline static CCritSec ms_SurfaceQueueLock;
+	ID3D11Device* GetDevice() const { return m_pDevice; }
 	std::deque<MemPic_t> m_FreeSurfaces;
 	std::deque<CDX11SubPic*> m_AllocatedSurfaces;
 

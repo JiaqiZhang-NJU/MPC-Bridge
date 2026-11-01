@@ -78,6 +78,7 @@ public:
 	};
 
 	CHdmvSub();
+	void ResetKeepingCurrent(REFERENCE_TIME time);
 	SIZE GetCanvasSize() const { return {m_VideoDescriptor.nVideoWidth, m_VideoDescriptor.nVideoHeight}; }
 	~CHdmvSub();
 

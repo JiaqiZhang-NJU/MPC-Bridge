@@ -64,6 +64,7 @@ public:
 	bool Open(const CString& fn, const CString& name, const CString& videoName);
 	// Metadata only: valid through clear/seek; never advances or cleans events.
 	SIZE GetCanvasSize();
+	void PrepareRateChange(REFERENCE_TIME time, double rate);
 
 private :
 	CString			m_name;
@@ -80,6 +81,9 @@ private :
 	std::thread m_parsingThread;
 
 	bool m_bLoadFromFile = false;
+	bool m_rateChangePending = false;
+	REFERENCE_TIME m_rateChangeTime = 0;
+	double m_rateChangeRate = 1.0;
 
 	void ParseFile(const CString& fn);
 };

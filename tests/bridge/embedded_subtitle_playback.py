@@ -32,7 +32,7 @@ def pgs_sample(number, clear=False):
     return segment(0x16,pcs)+segment(0x14,bytes([0,0,1,235,128,128,255]))+segment(0x15,obj)+segment(0x80,b'')
 
 
-def mkv(path, ass=False, pgs=False):
+def mkv(path, ass=False, pgs=False, continuous=False):
     def size(n):
         for width in range(1, 9):
             if n < (1 << (7 * width)) - 1:
@@ -70,6 +70,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     Image.new('RGB', (640, 360), (0, 0, 0)).save(buf, format='JPEG', quality=90)
     cues = [(1000, 8000, 2, 'Original first line'), (14000, 18000, 2, 'Original second line'),
             (2000, 4000, 3, '第一段译文'), (4000, 9000, 3, '第二段译文')]
+    if continuous:
+        cues = [(0,23000,2,'Continuous original'), (0,23000,3,'Continuous translation')]
     if pgs:
         original = cues
         cues = []

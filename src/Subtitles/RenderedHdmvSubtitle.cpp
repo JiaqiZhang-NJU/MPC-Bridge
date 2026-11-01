@@ -231,11 +231,21 @@ HRESULT CRenderedHdmvSubtitle::ParseSample(BYTE* pData, long nLen, REFERENCE_TIM
 	return hr;
 }
 
+void CRenderedHdmvSubtitle::PrepareRateChange(REFERENCE_TIME time, double rate)
+{
+	CAutoLock lock(&m_csCritSec);
+	m_rateChangePending=true; m_rateChangeTime=time; m_rateChangeRate=rate;
+}
+
 HRESULT CRenderedHdmvSubtitle::NewSegment(REFERENCE_TIME tStart, REFERENCE_TIME tStop, double dRate)
 {
 	CAutoLock cAutoLock(&m_csCritSec);
 
-	m_pSub->Reset();
+	const auto pgs=dynamic_cast<CHdmvSub*>(m_pSub);
+	if (pgs && UsesMediaTimeline() && m_rateChangePending && dRate==m_rateChangeRate
+		&& std::abs(tStart-m_rateChangeTime)<=1000000) pgs->ResetKeepingCurrent(tStart);
+	else m_pSub->Reset();
+	m_rateChangePending=false;
 	return S_OK;
 }
 

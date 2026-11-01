@@ -1,6 +1,6 @@
-mpc-bridge 0.2.1-preview.1 预览版 · Windows x64
+mpc-bridge 0.2.1-preview.2 预览版 · Windows x64
 
-此版本增加 PGS 图片双字幕、ASS/SSA/VTT 文件支持和播放记忆，并修复双字幕 PGS 模糊。
+此版本修复双内嵌字幕在 Bilibili 长按临时倍速时的闪烁，保留高清 PGS 双字幕、ASS/SSA/VTT 文件支持和播放记忆。
 
 安装版：打开 Setup.exe，点击「安装」，完成后从桌面或开始菜单启动。
 便携版：解压到可写目录，双击 Launch-MPC-Bridge.cmd 启动。

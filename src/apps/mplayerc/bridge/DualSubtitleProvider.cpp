@@ -3,7 +3,8 @@
 #include "DualSubtitleProvider.h"
 
 CDualSubtitleProvider::CDualSubtitleProvider(CCritSec* lock, const Bridge::DualSubtitleState& settings,
-    const std::shared_ptr<CSimpleTextSubtitle> (&sources)[2], const CComPtr<ISubStream> (&streams)[2], const STSStyle& defaults)
+    const std::shared_ptr<CSimpleTextSubtitle> (&sources)[2], const CComPtr<ISubStream> (&streams)[2], const STSStyle& defaults,
+    bool completePictures)
     : CRenderedTextSubtitle(lock), state(settings) {
     CAutoLock sourceLock(lock);
     // Keep an explicit transparent frame through gaps and global hiding.
@@ -37,6 +38,44 @@ CDualSubtitleProvider::CDualSubtitleProvider(CCritSec* lock, const Bridge::DualS
         }
     }
     Sort();
+    if (completePictures && (pictures[0] || pictures[1])) {
+        // Immutable file sources retain every composition. Cache a static
+        // image until its exact next cue boundary instead of invalidating it
+        // on every video frame (especially across graph rate changes).
+        boundaries = {0, REFERENCE_TIME(INT32_MAX)*10000};
+        for (int i=0;i<2;++i) {
+            const auto delay=REFERENCE_TIME(state.slots[i].delayMs)*10000;
+            auto add=[&](REFERENCE_TIME t) {
+                const REFERENCE_TIME limit=REFERENCE_TIME(INT32_MAX)*10000;
+                if(t > -delay && t < limit-delay) boundaries.push_back(t+delay);
+            };
+            if (pictures[i]) {
+                for(auto pos=pictures[i]->GetStartPosition(0,25);pos;pos=pictures[i]->GetNext(pos)) {
+                    add(pictures[i]->GetStart(pos,25)); add(pictures[i]->GetStop(pos,25));
+                }
+            } else if (sources[i] && state.slots[i].visible) {
+                for(size_t n=0;n<sources[i]->GetCount();++n) {
+                    add(REFERENCE_TIME(sources[i]->GetAt(n).start)*10000);
+                    add(REFERENCE_TIME(sources[i]->GetAt(n).end)*10000);
+                }
+            }
+        }
+        std::sort(boundaries.begin(),boundaries.end());
+        boundaries.erase(std::unique(boundaries.begin(),boundaries.end()),boundaries.end());
+    }
+}
+
+STDMETHODIMP_(POSITION) CDualSubtitleProvider::GetStartPosition(REFERENCE_TIME rt, double fps, bool clean) {
+    if(boundaries.empty()) return CRenderedTextSubtitle::GetStartPosition(rt,fps,clean);
+    auto it=std::upper_bound(boundaries.begin(),boundaries.end(),rt);
+    return it==boundaries.end() ? nullptr : POSITION(it-boundaries.begin());
+}
+STDMETHODIMP_(POSITION) CDualSubtitleProvider::GetNext(POSITION pos) {
+    if(boundaries.empty()) return CRenderedTextSubtitle::GetNext(pos);
+    return size_t(pos)+1<boundaries.size() ? POSITION(size_t(pos)+1) : nullptr;
+}
+STDMETHODIMP_(REFERENCE_TIME) CDualSubtitleProvider::GetStart(POSITION pos, double fps) {
+    return boundaries.empty() ? CRenderedTextSubtitle::GetStart(pos,fps) : boundaries[size_t(pos)-1];
 }
 
 STDMETHODIMP CDualSubtitleProvider::GetTextureSize(POSITION pos, SIZE& maximum, SIZE& virtualSize, POINT& origin) {

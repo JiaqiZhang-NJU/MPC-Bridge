@@ -251,6 +251,18 @@ HRESULT CHdmvSub::GetTextureSize(POSITION pos, SIZE& MaxTextureSize, SIZE& Video
 	return E_INVALIDARG;
 }
 
+void CHdmvSub::ResetKeepingCurrent(REFERENCE_TIME time)
+{
+	std::vector<CompositionObject*> active;
+	while (!m_pObjects.IsEmpty()) {
+		auto object=m_pObjects.RemoveHead();
+		if (object->m_rtStart<=time && time<object->m_rtStop) active.push_back(object);
+		else delete object;
+	}
+	Reset(); // reset packet assembly, keeping only the displayed composition
+	for(auto object:active) m_pObjects.AddTail(object);
+}
+
 void CHdmvSub::Reset()
 {
 	CompositionObject* pObject;
@@ -381,7 +393,19 @@ void CHdmvSub::EnqueuePresentationSegment()
 								  pObject->m_object_id_ref, pObject->m_window_id_ref, pObject->m_compositionNumber,
 								  pObject->m_rtStart, ReftimeToString(pObject->m_rtStart));
 
-					m_pObjects.AddTail(m_pCurrentWindow->Objects[i]);
+					// A rate handoff can redeliver the same display set. Replace
+					// its retained copy instead of blending the glyphs twice.
+					const auto incoming=m_pCurrentWindow->Objects[i];
+					for(auto pos=m_pObjects.GetHeadPosition();pos;) {
+						const auto remove=pos;
+						const auto old=m_pObjects.GetNext(pos);
+						if(old->m_object_id_ref==incoming->m_object_id_ref
+							&& old->m_compositionNumber==incoming->m_compositionNumber
+							&& std::abs(old->m_rtStart-incoming->m_rtStart)<=10) {
+							m_pObjects.RemoveAt(remove); delete old;
+						}
+					}
+					m_pObjects.AddTail(incoming);
 				} else {
 					delete m_pCurrentWindow->Objects[i];
 				}

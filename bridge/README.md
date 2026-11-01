@@ -4,9 +4,11 @@
 
 ## 安装
 
-[Windows x64 安装包与便携版](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.1-preview.1)。安装包仅为当前用户安装，点击「安装」即可完成；附带解析器、桌面/开始菜单入口和独立卸载登记。升级与卸载保留配置；当前发布未签名。安装器构建和验证见 [INSTALLER.md](../tools/bridge/INSTALLER.md)。
+[Windows x64 安装包与便携版](https://github.com/JiaqiZhang-NJU/MPC-Bridge/releases/tag/v0.2.1-preview.2)。安装包仅为当前用户安装，点击「安装」即可完成；附带解析器、桌面/开始菜单入口和独立卸载登记。升级与卸载保留配置；当前发布未签名。安装器构建和验证见 [INSTALLER.md](../tools/bridge/INSTALLER.md)。
 
 ## 当前功能
+
+- 0.2.1-preview.2 修复双内嵌字幕在 Bilibili 长按临时 3 倍速及松开恢复时的闪烁，保留高清 PGS 渲染。[修复与回归范围](DUAL-SUBTITLES.md)。
 
 - 本预览版新增「播放记忆」菜单，跨次打开同一视频恢复观看位置、倍速、在线清晰度、音轨和单/双字幕配置；新配置默认开启，升级保留明确的关闭选项。[操作、数据和验证范围](PLAYBACK-MEMORY.md)。
 

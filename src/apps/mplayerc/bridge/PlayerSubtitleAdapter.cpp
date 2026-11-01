@@ -363,7 +363,7 @@ bool CMainFrame::ApplyBridgeSubtitles(const Bridge::DualSubtitleState& requested
     return true;
 }
 
-bool CMainFrame::AttachBridgeSubtitles(ISubStream* selected) {
+bool CMainFrame::AttachBridgeSubtitles(ISubStream* selected, bool rebuild) {
     if (!m_pCAP) return false;
     if (m_bridgeQualitySwitch.pending || !AfxGetAppSettings().fEnableSubtitles) return false;
     if (!m_bridgeSubtitles.enabled) { DetachBridgeSubtitles(); return false; }
@@ -394,16 +394,23 @@ bool CMainFrame::AttachBridgeSubtitles(ISubStream* selected) {
             CAutoLock lock(&m_csSubLock);
             m_bridgeSubtitleSources[0] = primary ? Bridge::MakeSubtitleReadingCopy(*primary) : nullptr;
         }
-        m_bridgeSubtitleProvider.Release();
+        rebuild = true;
     }
     for (int i = 0; i < 2; ++i) if (!m_bridgeSubtitleSources[i] && !dynamic_cast<CRenderedHdmvSubtitle*>(m_bridgeSubtitleStreams[i].p)) return false;
     CComPtr<ISubStream> effective[2];
     for (int i=0;i<2;++i) effective[i] = m_bridgeSubtitleIndependent[i] ? m_bridgeSubtitleIndependent[i] : m_bridgeSubtitleStreams[i];
-    if (!m_bridgeSubtitleProvider) m_bridgeSubtitleProvider = new CDualSubtitleProvider(&m_csSubLock, m_bridgeSubtitles,
-        m_bridgeSubtitleSources, effective, AfxGetAppSettings().subdefstyle);
+    bool completePictures = true;
+    for (int i=0;i<2;++i) if (dynamic_cast<CRenderedHdmvSubtitle*>(effective[i].p) && !m_bridgeSubtitlePrepared[i]) completePictures = false;
+    if (rebuild || !m_bridgeSubtitleProvider) {
+        CComPtr<CDualSubtitleProvider> next = new CDualSubtitleProvider(&m_csSubLock, m_bridgeSubtitles,
+            m_bridgeSubtitleSources, effective, AfxGetAppSettings().subdefstyle, completePictures);
+        CAutoLock publish(&m_csSubLock);
+        m_bridgeSubtitleProvider = next;
+    }
     for (int i = 0; i < 2; ++i) m_bridgeSubtitleObserved[i] = m_bridgeSubtitlePrepared[i] ? 0 : reinterpret_cast<DWORD_PTR>(m_bridgeSubtitleStreams[i].p);
     m_bridgeSubtitleProvider.p->hidden = false;
     m_pCAP->SetSubtitleDelay(0); g_bExternalSubtitle = true;
+    for (auto& stream : m_bridgeSubtitleStreams) if (auto provider = dynamic_cast<CSubPicProviderImpl*>(stream.p)) provider->SetMediaTimeline(true);
     m_bridgeSubtitleActive = true;
     if (CComQIPtr<IExFilterConfig> config = m_pCAP.p) config->Flt_SetBool("lessRedraws", false);
     if (m_pMS && GetMediaState() != State_Running) {
@@ -470,8 +477,7 @@ void CMainFrame::PollBridgeSubtitlePreparation() {
         if (result[i].text) m_bridgeSubtitleSources[i] = result[i].text;
         m_bridgeSubtitlePrepared[i] = true;
     }
-    m_bridgeSubtitleProvider.Release();
-    AttachBridgeSubtitles(m_pCurrentSubStream); RepaintVideo();
+    AttachBridgeSubtitles(m_pCurrentSubStream, true); RepaintVideo();
     m_OSD.DisplayMessage(OSD_TOPLEFT,ChineseSubUI() ? L"完整字幕已就绪。" : L"Full subtitle tracks are ready.",2500);
 }
 
@@ -546,6 +552,7 @@ void CMainFrame::RefreshBridgeSubtitleFiles() {
 }
 
 void CMainFrame::CloseBridgeSubtitles() {
+    for (auto& stream : m_bridgeSubtitleStreams) if (auto provider = dynamic_cast<CSubPicProviderImpl*>(stream.p)) provider->SetMediaTimeline(false);
     m_bridgeSubtitleRefreshFrames = 0;
     m_bridgeSubtitlePreparation.reset(); m_bridgeSubtitlePreparationPublished = false;
     for (auto& observed : m_bridgeSubtitleObserved) observed = 0;
@@ -565,8 +572,11 @@ void CMainFrame::OnBridgeSubtitleRefresh() {
     const auto tracks = GetBridgeEmbeddedSubtitles();
     std::vector<std::wstring> keys;
     for (const auto& track : tracks) keys.push_back(track.key);
+    bool rebuild = !m_bridgeSubtitleProvider;
+    bool refreshPictures = false;
     for (int i = 0; i < 2; ++i) {
         auto& slot = m_bridgeSubtitles.slots[i];
+        const auto previous = m_bridgeSubtitleStreams[i];
         if (slot.embeddedTrack >= 0) {
             const int index = Bridge::ResolveEmbeddedTrack(slot, keys);
             if (index < 0) {
@@ -576,11 +586,33 @@ void CMainFrame::OnBridgeSubtitleRefresh() {
             slot.embeddedTrack = index; m_bridgeSubtitleStreams[i] = tracks[index].stream;
         }
         if (m_bridgeSubtitlePrepared[i]) continue;
+        const bool replaced = previous != m_bridgeSubtitleStreams[i];
+        rebuild |= replaced;
         if (auto text = dynamic_cast<CRenderedTextSubtitle*>(m_bridgeSubtitleStreams[i].p)) {
             CAutoLock lock(&m_csSubLock);
-            m_bridgeSubtitleSources[i] = Bridge::MakeSubtitleReadingCopy(*text);
-        } else if (slot.embeddedTrack >= 0) m_bridgeSubtitleSources[i].reset();
+            auto next = Bridge::MakeSubtitleReadingCopy(*text);
+            const auto& old = m_bridgeSubtitleSources[i];
+            // NewSegment resets the decoder before redelivering cues. The
+            // existing reading copy still has valid absolute media intervals;
+            // keep those until a replacement arrives, including after seeks.
+            if (!replaced && next->IsEmpty() && old) continue;
+            bool same = !replaced && old && old->GetCount() == next->GetCount();
+            for(size_t n=0;same && n<next->GetCount();++n) {
+                const auto& a=old->GetAt(n); const auto& b=next->GetAt(n);
+                same = a.start==b.start && a.end==b.end && a.str==b.str
+                    && a.layer==b.layer && a.readorder==b.readorder && a.actor==b.actor;
+            }
+            if(!same) { m_bridgeSubtitleSources[i] = std::move(next); rebuild = true; }
+        } else if (slot.embeddedTrack >= 0) {
+            m_bridgeSubtitleSources[i].reset(); refreshPictures = true;
+        }
     }
-    m_bridgeSubtitleProvider.Release();
-    AttachBridgeSubtitles(m_pCurrentSubStream); RepaintVideo();
+    if (!rebuild) {
+        if (refreshPictures && m_pCAP) {
+            m_pCAP->Invalidate();
+            if (GetMediaState() != State_Running) { m_bridgeSubtitleRefreshFrames = 8; RepaintVideo(); }
+        }
+        return;
+    }
+    AttachBridgeSubtitles(m_pCurrentSubStream, true); RepaintVideo();
 }

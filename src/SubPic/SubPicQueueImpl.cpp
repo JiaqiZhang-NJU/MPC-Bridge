@@ -24,6 +24,7 @@
 #include <intsafe.h>
 #include "DSUtil/Utils.h"
 #include "SubPicQueueImpl.h"
+#include "SubPicProviderImpl.h"
 
 #define SUBPIC_TRACE_LEVEL 0
 
@@ -386,6 +387,33 @@ STDMETHODIMP_(bool) CSubPicQueue::LookupSubPic(REFERENCE_TIME rtNow, bool bAdvis
 		}
 	}
 
+	if (!ppSubPic || ppSubPic->GetStart() > rtNow || ppSubPic->GetStop() <= rtNow) {
+		// A live bitmap provider has no schedulable end time. After a rate
+		// change the async queue can temporarily miss the requested frame.
+		// Render that exact time synchronously instead of displaying a video
+		// frame without subtitles. Never reuse an expired image across a clear.
+		CComPtr<ISubPicProvider> provider;
+		bool live = false;
+		if (SUCCEEDED(GetSubPicProvider(&provider)) && provider && SUCCEEDED(provider->Lock())) {
+			const auto pos = provider->GetStartPosition(rtNow, m_fps);
+			const auto native = dynamic_cast<CSubPicProviderImpl*>(provider.p);
+			live = pos && provider->GetStart(pos, m_fps) <= rtNow
+				&& ((!ppSubPic && provider->GetStop(pos, m_fps) == ISubPicProvider::UNKNOWN_TIME)
+					|| (native && native->RenderOnQueueMiss()));
+			provider->Unlock();
+		}
+		if (live) {
+			ppSubPic.Release();
+			HRESULT hr = S_OK;
+			CComPtr<ISubPicQueue> immediate = new CSubPicQueueNoThread(m_bDisableAnim, m_pAllocator, &hr);
+			if (SUCCEEDED(hr)) {
+				immediate->SetSubPicProvider(provider);
+				immediate->SetFPS(m_fps);
+				immediate->LookupSubPic(rtNow, ppSubPic);
+			}
+		}
+	}
+
 	if (ppSubPic) {
 		// Save the subpic for later reuse
 		std::lock_guard<std::mutex> lock(m_mutexSubpic);
@@ -587,7 +615,12 @@ DWORD CSubPicQueue::ThreadProc()
 							pStatic->SetSegmentStop(std::max(rtCurrent + rtTimePerFrame, rtStopReal));
 							rtCurrent = std::min(rtCurrent + rtTimePerFrame, rtStopReal);
 						} else {
-							hr = RenderTo(pStatic, rtStart, rtStopReal, fps, bIsAnimated);
+							// UNKNOWN_TIME is rendered for one frame only. Its start
+							// must be that frame's time, not the provider's background
+							// segment start; otherwise a future clear is cached as
+							// valid for the entire past after a seek/rate transition.
+							const auto renderStart = rtStop == ISubPicProvider::UNKNOWN_TIME ? rtCurrent : rtStart;
+							hr = RenderTo(pStatic, renderStart, rtStopReal, fps, bIsAnimated);
 							// Non-animated subtitles aren't part of a segment
 							pStatic->SetSegmentStart(ISubPic::INVALID_SUBPIC_TIME);
 							pStatic->SetSegmentStop(ISubPic::INVALID_SUBPIC_TIME);
@@ -729,6 +762,7 @@ STDMETHODIMP_(bool) CSubPicQueueNoThread::LookupSubPic(REFERENCE_TIME rtNow, boo
 				} else {
 					rtStart = pSubPicProvider->GetStart(pos, fps);
 				}
+				if (pSubPicProvider->GetStop(pos, fps) == ISubPicProvider::UNKNOWN_TIME) rtStart = rtNow;
 
 				if (rtStart <= rtNow && rtNow < rtStop) {
 					bool	bAllocSubPic = !pSubPic;

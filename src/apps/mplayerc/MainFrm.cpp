@@ -6552,7 +6552,12 @@ HRESULT CMainFrame::RenderCurrentSubtitles(BYTE* pData)
 
 	const CAppSettings& s = AfxGetAppSettings();
 	if (s.fEnableSubtitles && s.bSnapShotSubtitles) {
-		if (CComQIPtr<ISubPicProvider> pSubPicProvider = m_bridgeSubtitleActive ? static_cast<ISubStream*>(m_bridgeSubtitleProvider.p) : m_pCurrentSubStream.p) {
+		CComPtr<ISubPicProvider> pSubPicProvider;
+		{
+			CAutoLock snapshot(&m_csSubLock);
+			pSubPicProvider = CComQIPtr<ISubPicProvider>(m_bridgeSubtitleActive ? static_cast<ISubStream*>(m_bridgeSubtitleProvider.p) : m_pCurrentSubStream.p);
+		}
+		if (pSubPicProvider) {
 			const PBITMAPINFOHEADER bih = (PBITMAPINFOHEADER)pData;
 			const int width  = bih->biWidth;
 			const int height = bih->biHeight;
@@ -9031,8 +9036,7 @@ void CMainFrame::SetSubtitleDelay(int delay_ms)
 	if (m_pCAP) {
 		if (m_bridgeSubtitleActive) {
 			m_bridgeSubtitles.slots[0].delayMs = std::clamp(delay_ms, -Bridge::SubtitleDelayLimit, Bridge::SubtitleDelayLimit);
-			m_bridgeSubtitleProvider.Release();
-			AttachBridgeSubtitles(m_pCurrentSubStream);
+			AttachBridgeSubtitles(m_pCurrentSubStream, true);
 		} else m_pCAP->SetSubtitleDelay(delay_ms);
 	}
 
@@ -16890,6 +16894,11 @@ void CMainFrame::SetSubtitle(ISubStream* pSubStream, int iSubtitleSel/* = -1*/, 
 		m_pCAP->SetSubpicSettings(&s.m_VRSettings.SubpicSets);
 
 		g_bExternalSubtitle = (std::find(m_ExternalSubstreams.cbegin(), m_ExternalSubstreams.cend(), pSubStream) != m_ExternalSubstreams.cend());
+		// Once an embedded stream has received absolute media timestamps, keep
+		// that clock when returning from dual to native single-subtitle mode.
+		if (auto provider = dynamic_cast<CSubPicProviderImpl*>(pSubStream)) {
+			g_bExternalSubtitle = g_bExternalSubtitle || provider->UsesMediaTimeline();
+		}
 		// Publish the final provider once. Briefly installing the native PGS
 		// first can enqueue single-track frames into a paused swap chain.
 		if (!AttachBridgeSubtitles(pSubStream)) {
@@ -16928,6 +16937,9 @@ void CMainFrame::InvalidateSubtitle(DWORD_PTR nSubtitleId, REFERENCE_TIME rtInva
         // on the UI thread, coalescing updates from both streaming tracks.
         if (!PostMessageW(WM_COMMAND, ID_BRIDGE_SUBTITLE_REFRESH)) m_bridgeSubtitleRefreshQueued = false;
     }
+    // The combined provider owns invalidation. In particular, native packets
+    // must not evict an independently prepared source's cached frame.
+    if (m_bridgeSubtitleActive.load() && nSubtitleId != DWORD_PTR(-1)) return;
 	if (m_pCAP) {
 		if (nSubtitleId == -1 || nSubtitleId == (DWORD_PTR)m_pCurrentSubStream.p) {
 			m_pCAP->Invalidate(rtInvalidate);

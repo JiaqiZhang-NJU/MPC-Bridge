@@ -1,4 +1,4 @@
-﻿param([string]$Version = "0.2.1-preview.1")
+﻿param([string]$Version = "0.2.1-preview.2")
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid package version.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -23,6 +23,9 @@ try {
         'src/apps/mplayerc/bridge/MatroskaSubtitleReader.cpp',
         'src/apps/mplayerc/bridge/SubtitleFilePreparation.cpp',
         'src/apps/mplayerc/bridge/SubtitleTranslation.cpp',
+        'src/filters/renderer/VideoRenderers/SubtitleFrameProbe.h',
+        'tests/bridge/subtitle_rate_matrix.py',
+        'tools/bridge/test-subtitle-rate.ps1',
         'tests/bridge/subtitle_text_native_tests.cpp')
     if ($Version -match '^0\.2\.') { $requiredSources += @('src/apps/mplayerc/bridge/MediaCache.cpp','src/apps/mplayerc/bridge/PlayerQualityAdapter.cpp','tests/bridge/cache_integration.py') }
     if ($Version -match '^0\.2\.' -and $Version -notmatch '-dev\.') { $requiredSources += @('src/apps/mplayerc/bridge/DualSubtitleProvider.cpp','tests/bridge/dual_subtitle_playback.py') }
